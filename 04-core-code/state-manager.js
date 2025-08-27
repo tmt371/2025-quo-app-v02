@@ -3,7 +3,7 @@
 /**
  * @fileoverview The application's central orchestrator (controller).
  * It listens for user-intent events and delegates tasks to specialized
- * models, services, and strategies. It does not contain business logic itself.
+ * models, services, and strategies.
  */
 
 export class StateManager {
@@ -11,10 +11,10 @@ export class StateManager {
         this.quoteModel = quoteModel;
         this.persistenceService = persistenceService;
         this.productFactory = productFactory;
-        this.configManager = configManager; // 需要 ConfigManager 來獲取價格表
+        this.configManager = configManager;
         this.eventAggregator = eventAggregator;
         
-        // UI 狀態現在獨立管理，不與 quoteData 混淆
+        // UI 狀態獨立管理
         this.uiState = {
             inputValue: '',
             inputMode: 'width',
@@ -52,7 +52,76 @@ export class StateManager {
         this.eventAggregator.publish('stateChanged', fullState);
     }
     
-    // --- 所有處理方法都被簡化為協調邏輯 ---
+    // --- [補完] 處理數字鍵盤輸入的核心方法 ---
+    _handleNumericKeyPress(key) {
+        if (!isNaN(parseInt(key))) { // is a number
+            this.uiState.inputValue += key;
+        } else if (key === 'DEL') {
+            this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
+        } else if (key === 'W' || key === 'H') {
+            this._changeInputMode(key === 'W' ? 'width' : 'height');
+        } else if (key === 'ENT') {
+            this._commitValue();
+        }
+        this._publishStateChange();
+    }
+
+    _commitValue() {
+        const { inputValue, inputMode, activeCell, isEditing } = this.uiState;
+        const value = inputValue === '' ? null : parseInt(inputValue, 10);
+        
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const validationRules = productStrategy.getValidationRules();
+        const rule = validationRules[inputMode];
+
+        if (value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
+            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.` });
+            this.uiState.inputValue = '';
+            this._publishStateChange();
+            return;
+        }
+
+        // 所有資料修改都透過 Model 進行
+        this.quoteModel.updateItemValue(activeCell.rowIndex, inputMode, value);
+
+        // 如果寬或高被清空，則價格也清空
+        if ((inputMode === 'width' || inputMode === 'height') && value === null) {
+            this.quoteModel.updateItemValue(activeCell.rowIndex, 'linePrice', null);
+        }
+
+        const items = this.quoteModel.getAllItems();
+        const targetItem = items[activeCell.rowIndex];
+
+        if (isEditing) {
+            this.uiState.isEditing = false;
+        } else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
+            // 如果在最後一行輸入了資料，自動新增下一行
+            const newItem = productStrategy.getInitialItemData();
+            this.quoteModel.insertItem(items.length, newItem);
+        }
+        
+        this.uiState.inputValue = '';
+        this._changeInputMode(inputMode); // 自動跳到下一個輸入格
+        // _changeInputMode 內部會發布 state change
+    }
+
+    _changeInputMode(mode) {
+        this.uiState.inputMode = mode;
+        this.uiState.isEditing = false;
+        this.uiState.selectedRowIndex = null;
+        
+        const items = this.quoteModel.getAllItems();
+        const nextEmptyIndex = items.findIndex(item => item[mode] === null || item[mode] === '');
+        
+        if (nextEmptyIndex !== -1) {
+            this.uiState.activeCell = { rowIndex: nextEmptyIndex, column: mode };
+        } else {
+            this.uiState.activeCell = { rowIndex: items.length - 1, column: mode };
+        }
+        this._publishStateChange();
+    }
+
+    // --- 其他協調方法 ---
 
     _handleTableCellClick({ rowIndex, column }) {
         this.uiState.selectedRowIndex = null;
@@ -67,7 +136,7 @@ export class StateManager {
         }
         if (column === 'TYPE') {
             if (!item.width && !item.height) return;
-            const TYPE_SEQUENCE = ['BO', 'BO1', 'SN']; // 暫時保留
+            const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
             const currentIndex = TYPE_SEQUENCE.indexOf(item.fabricType);
             const nextIndex = (currentIndex + 1) % TYPE_SEQUENCE.length;
             this.quoteModel.updateItemValue(rowIndex, 'fabricType', TYPE_SEQUENCE[nextIndex]);
@@ -86,18 +155,15 @@ export class StateManager {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
             return;
         }
-
         const items = this.quoteModel.getAllItems();
         const selectedItem = items[selectedRowIndex];
         if (selectedRowIndex === items.length - 1 && !selectedItem.width && !selectedItem.height) {
             this.eventAggregator.publish('showNotification', { message: 'Cannot insert after the final empty row.' });
             return;
         }
-
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         const newItem = productStrategy.getInitialItemData();
         this.quoteModel.insertItem(selectedRowIndex + 1, newItem);
-        
         this.uiState.selectedRowIndex = null;
         this._publishStateChange();
     }
@@ -108,14 +174,12 @@ export class StateManager {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' });
             return;
         }
-
         const items = this.quoteModel.getAllItems();
         const selectedItem = items[selectedRowIndex];
         if (items.length > 1 && selectedRowIndex === items.length - 1 && !selectedItem.width && !selectedItem.height) {
             this.eventAggregator.publish('showNotification', { message: 'Cannot delete the final empty row.' });
             return;
         }
-
         this.quoteModel.deleteItem(selectedRowIndex);
         this.uiState.selectedRowIndex = null;
         this._publishStateChange();
@@ -124,24 +188,25 @@ export class StateManager {
     _handlePriceCalculationRequest() {
         const items = this.quoteModel.getAllItems();
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
-
+        let needsUpdate = false;
         items.forEach((item, index) => {
             if (item.width && item.height && item.fabricType) {
                 const priceMatrix = this.configManager.getPriceMatrix(item.fabricType);
                 const result = productStrategy.calculatePrice(item, priceMatrix);
-                
                 if (result.price !== null) {
                     this.quoteModel.updateItemValue(index, 'linePrice', result.price);
+                    needsUpdate = true;
                 } else if (result.error) {
                     this.eventAggregator.publish('showNotification', { message: result.error });
                 }
             }
         });
-        this._publishStateChange();
+        if (needsUpdate) {
+            this._publishStateChange();
+        }
     }
 
     _handleSummationRequest() {
-        // 驗證邏輯可以移交給 QuoteModel 或 Strategy
         this.quoteModel.calculateTotalSum();
         this._publishStateChange();
     }
@@ -159,17 +224,15 @@ export class StateManager {
     _handleLoad() {
         const result = this.persistenceService.load();
         if (result.success && result.data) {
-            // 用載入的資料重設整個 Model
             this.quoteModel.data = result.data;
             this._publishStateChange();
             this.eventAggregator.publish('showNotification', { message: 'Quote loaded successfully!' });
-        } else if (!result.data) {
+        } else if (result.success && !result.data) {
             this.eventAggregator.publish('showNotification', { message: 'No saved quote found.' });
         } else {
             this.eventAggregator.publish('showNotification', { message: 'Error: Could not load quote.', type: 'error' });
         }
     }
-
-    // 其他處理 UI 輸入的方法 (_handleNumericKeyPress, _commitValue 等) 在此省略以求簡潔
-    // 在一個更完整的重構中，它們可能會被移到一個專門的 UI 狀態管理器中
+    
+    // 省略 _handleTableHeaderClick 因為它目前的功能比較次要
 }
