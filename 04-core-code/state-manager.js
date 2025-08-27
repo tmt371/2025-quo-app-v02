@@ -25,7 +25,6 @@ export class StateManager {
     }
 
     initialize() {
-        // ... 所有訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
@@ -44,8 +43,8 @@ export class StateManager {
             quoteData: this.quoteModel.getQuoteData(),
         };
         
-        // --- [新增] 偵錯探測器：在發送前，印出要發送的內容 ---
-        console.log("%cStateManager PUBLISHING state:", "color: blue; font-weight: bold;", fullState);
+        // --- [修改] 移除偵錯日誌 ---
+        // console.log("%cStateManager PUBLISHING state:", "color: blue; font-weight: bold;", fullState);
 
         this.eventAggregator.publish('stateChanged', fullState);
     }
@@ -57,14 +56,14 @@ export class StateManager {
             this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
         } else if (key === 'W' || key === 'H') {
             this._changeInputMode(key === 'W' ? 'width' : 'height');
+            return; // _changeInputMode 內部會 publish
         } else if (key === 'ENT') {
             this._commitValue();
-            return; 
+            return; // _commitValue 內部會 publish
         }
         this._publishStateChange();
     }
     
-    // ... 其他所有方法維持不變 (為了簡潔省略) ...
     _commitValue() {
         const { inputValue, inputMode, activeCell, isEditing } = this.uiState;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);

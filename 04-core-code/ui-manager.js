@@ -25,8 +25,8 @@ export class UIManager {
     }
 
     render(state) {
-        // --- [新增] 偵錯探測器：在渲染前，印出收到的內容 ---
-        console.log("%cUIManager RECEIVED state for rendering:", "color: green; font-weight: bold;", state);
+        // --- [修改] 移除偵錯日誌 ---
+        // console.log("%cUIManager RECEIVED state for rendering:", "color: green; font-weight: bold;", state);
 
         if (state.ui.currentView === 'QUICK_QUOTE') {
             this._renderQuickQuoteView(state);
@@ -38,16 +38,17 @@ export class UIManager {
             this.inputDisplay.textContent = state.ui.inputValue || '';
         }
 
-        // ... 其他渲染邏輯維持不變 (為了簡潔省略) ...
         if (this.resultsTableBody) {
             const { rollerBlindItems } = state.quoteData;
             const { activeCell, selectedRowIndex } = state.ui; 
             if (rollerBlindItems.length === 0 || (rollerBlindItems.length === 1 && !rollerBlindItems[0].width && !rollerBlindItems[0].height)) {
-                this.resultsTableBody.innerHTML = `<tr<td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
+                this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
             } else {
                 this.resultsTableBody.innerHTML = rollerBlindItems.map((item, index) => {
                     const isWHighlighted = index === activeCell.rowIndex && activeCell.column === 'width';
-                    const isHHighlighted = index === active-cell.rowIndex && activeCell.column === 'height';
+                    // --- [修改] 修正致命的拼寫錯誤 active-cell -> activeCell ---
+                    const isHHighlighted = index === activeCell.rowIndex && activeCell.column === 'height';
+                    
                     const isSequenceSelected = index === selectedRowIndex;
                     const sequenceCellClass = isSequenceSelected ? 'selected-row-highlight' : '';
                     let typeClass = '';
