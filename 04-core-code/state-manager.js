@@ -2,6 +2,8 @@
 
 /**
  * @fileoverview The application's central orchestrator (controller).
+ * It listens for user-intent events and delegates tasks to specialized
+ * models, services, and strategies.
  */
 
 export class StateManager {
@@ -26,7 +28,6 @@ export class StateManager {
 
     initialize() {
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
-        // ... 其他訂閱維持不變 ...
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
         this.eventAggregator.subscribe('sequenceCellClicked', (data) => this._handleSequenceCellClick(data));
@@ -47,9 +48,8 @@ export class StateManager {
     }
     
     _handleNumericKeyPress(key) {
-        // --- [新增] 偵錯探測器 ---
-        console.log("Key pressed:", key, "| Type:", typeof key);
-        // --- [偵錯結束] ---
+        // --- [修改] 移除偵錯程式碼 ---
+        // console.log("Key pressed:", key, "| Type:", typeof key);
 
         if (!isNaN(parseInt(key))) { // is a number
             this.uiState.inputValue += key;
@@ -59,11 +59,13 @@ export class StateManager {
             this._changeInputMode(key === 'W' ? 'width' : 'height');
         } else if (key === 'ENT') {
             this._commitValue();
+            return; // _commitValue 內部會 publish，此處提前返回避免重複
         }
+        
+        // --- [修改] 補上遺漏的關鍵通知，讓 UI 更新 ---
         this._publishStateChange();
     }
 
-    // ... 其他所有方法維持不變 ...
     _commitValue() {
         const { inputValue, inputMode, activeCell, isEditing } = this.uiState;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
@@ -104,6 +106,8 @@ export class StateManager {
         }
         this._publishStateChange();
     }
+    
+    // ... 其他所有方法維持不變 ...
     _handleTableCellClick({ rowIndex, column }) {
         this.uiState.selectedRowIndex = null;
         const item = this.quoteModel.getItem(rowIndex);
@@ -115,7 +119,7 @@ export class StateManager {
             this.uiState.inputValue = String(item[column] || '');
         }
         if (column === 'TYPE') {
-            if (!item.width && !item.height) return;
+            if (!item.width || !item.height) return;
             const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
             const currentIndex = TYPE_SEQUENCE.indexOf(item.fabricType);
             const nextIndex = (currentIndex + 1) % TYPE_SEQUENCE.length;
