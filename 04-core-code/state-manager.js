@@ -2,8 +2,6 @@
 
 /**
  * @fileoverview The application's central orchestrator (controller).
- * It listens for user-intent events and delegates tasks to specialized
- * models, services, and strategies.
  */
 
 export class StateManager {
@@ -27,6 +25,7 @@ export class StateManager {
     }
 
     initialize() {
+        // ... 所有訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
@@ -44,14 +43,15 @@ export class StateManager {
             ui: this.uiState,
             quoteData: this.quoteModel.getQuoteData(),
         };
+        
+        // --- [新增] 偵錯探測器：在發送前，印出要發送的內容 ---
+        console.log("%cStateManager PUBLISHING state:", "color: blue; font-weight: bold;", fullState);
+
         this.eventAggregator.publish('stateChanged', fullState);
     }
     
     _handleNumericKeyPress(key) {
-        // --- [修改] 移除偵錯程式碼 ---
-        // console.log("Key pressed:", key, "| Type:", typeof key);
-
-        if (!isNaN(parseInt(key))) { // is a number
+        if (!isNaN(parseInt(key))) {
             this.uiState.inputValue += key;
         } else if (key === 'DEL') {
             this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
@@ -59,13 +59,12 @@ export class StateManager {
             this._changeInputMode(key === 'W' ? 'width' : 'height');
         } else if (key === 'ENT') {
             this._commitValue();
-            return; // _commitValue 內部會 publish，此處提前返回避免重複
+            return; 
         }
-        
-        // --- [修改] 補上遺漏的關鍵通知，讓 UI 更新 ---
         this._publishStateChange();
     }
-
+    
+    // ... 其他所有方法維持不變 (為了簡潔省略) ...
     _commitValue() {
         const { inputValue, inputMode, activeCell, isEditing } = this.uiState;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
@@ -106,8 +105,6 @@ export class StateManager {
         }
         this._publishStateChange();
     }
-    
-    // ... 其他所有方法維持不變 ...
     _handleTableCellClick({ rowIndex, column }) {
         this.uiState.selectedRowIndex = null;
         const item = this.quoteModel.getItem(rowIndex);

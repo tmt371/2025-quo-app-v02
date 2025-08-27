@@ -25,6 +25,9 @@ export class UIManager {
     }
 
     render(state) {
+        // --- [新增] 偵錯探測器：在渲染前，印出收到的內容 ---
+        console.log("%cUIManager RECEIVED state for rendering:", "color: green; font-weight: bold;", state);
+
         if (state.ui.currentView === 'QUICK_QUOTE') {
             this._renderQuickQuoteView(state);
         }
@@ -35,30 +38,24 @@ export class UIManager {
             this.inputDisplay.textContent = state.ui.inputValue || '';
         }
 
+        // ... 其他渲染邏輯維持不變 (為了簡潔省略) ...
         if (this.resultsTableBody) {
             const { rollerBlindItems } = state.quoteData;
-            const { activeCell, selectedRowIndex } = state.ui; // --- [修改] 獲取 selectedRowIndex ---
-
+            const { activeCell, selectedRowIndex } = state.ui; 
             if (rollerBlindItems.length === 0 || (rollerBlindItems.length === 1 && !rollerBlindItems[0].width && !rollerBlindItems[0].height)) {
-                this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
+                this.resultsTableBody.innerHTML = `<tr<td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
             } else {
                 this.resultsTableBody.innerHTML = rollerBlindItems.map((item, index) => {
                     const isWHighlighted = index === activeCell.rowIndex && activeCell.column === 'width';
-                    const isHHighlighted = index === activeCell.rowIndex && activeCell.column === 'height';
-                    
-                    // --- [修改開始] ---
-                    // 判斷當前項次是否為被選中的行
+                    const isHHighlighted = index === active-cell.rowIndex && activeCell.column === 'height';
                     const isSequenceSelected = index === selectedRowIndex;
                     const sequenceCellClass = isSequenceSelected ? 'selected-row-highlight' : '';
-                    // --- [修改結束] ---
-
                     let typeClass = '';
                     if (item.fabricType === 'BO1') {
                         typeClass = 'type-bo1';
                     } else if (item.fabricType === 'SN') {
                         typeClass = 'type-sn';
                     }
-
                     return `
                         <tr data-row-index="${index}">
                             <td data-column="sequence" class="${sequenceCellClass}">${index + 1}</td>
@@ -71,7 +68,6 @@ export class UIManager {
                 }).join('');
             }
         }
-
         if (this.totalSumValueElement) {
             const totalSum = state.quoteData.summary ? state.quoteData.summary.totalSum : null;
             if (typeof totalSum === 'number') {
@@ -87,33 +83,27 @@ export class UIManager {
             this.numericKeyboardPanel.classList.toggle('is-collapsed');
         }
     }
-
     _toggleFunctionKeyboard() {
         if (this.functionPanel) {
             this.functionPanel.classList.toggle('is-expanded');
         }
     }
-
     _handleEmailRequest() {
         const state = this.stateManager.getState();
         const quoteData = state.quoteData;
-
         if (!quoteData || !quoteData.rollerBlindItems || quoteData.rollerBlindItems.length === 0) {
             this.eventAggregator.publish('showNotification', { message: 'There is no quote data to email.' });
             return;
         }
-
         const subject = "Ez Blinds Quotation";
         const body = this._formatQuoteForEmail(quoteData);
         const encodedBody = encodeURIComponent(body);
         const mailtoLink = `mailto:${CUSTOMER_EMAIL}?cc=${COMPANY_EMAIL}&subject=${subject}&body=${encodedBody}`;
         window.location.href = mailtoLink;
     }
-
     _formatQuoteForEmail(quoteData) {
         let content = "Hello,\n\nHere is your quotation from Ez Blinds:\n\n";
         content += "====================================\n";
-        
         quoteData.rollerBlindItems.forEach((item, index) => {
             if (item.width && item.height) {
                 const price = item.linePrice ? `$${item.linePrice.toFixed(2)}` : 'N/A';
@@ -124,16 +114,13 @@ export class UIManager {
                 content += `  - Price: ${price}\n\n`;
             }
         });
-
         content += "====================================\n";
         const totalSum = quoteData.summary ? quoteData.summary.totalSum : null;
         if (typeof totalSum === 'number') {
             content += `Total Sum: $${totalSum.toFixed(2)}\n\n`;
         }
-
         content += "Thank you for your business.\n\n";
         content += "Best regards,\nEz Blinds Team";
-
         return content;
     }
 }
