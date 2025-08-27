@@ -6,7 +6,7 @@ import { InputHandler } from './input-handler.js';
 import { UIManager } from './ui-manager.js';
 import { StateManager } from './state-manager.js';
 
-// --- [新增] 匯入所有新的模組 ---
+// 匯入所有新的模組
 import { initialState } from './config/initial-state.js';
 import { QuoteModel } from './models/quote-model.js';
 import { PersistenceService } from './services/persistence-service.js';
@@ -15,14 +15,13 @@ import { ProductFactory } from './strategies/product-factory.js';
 
 class App {
     constructor() {
-        // --- [修改] 重構後的模組實例化與依賴注入 ---
+        // --- [修改] 調整實例化順序並修正依賴注入 ---
 
         // 1. 建立核心通訊中樞
         this.eventAggregator = new EventAggregator();
         
         // 2. 建立無依賴或僅依賴 eventAggregator 的基礎模組
         this.configManager = new ConfigManager(this.eventAggregator);
-        this.uiManager = new UIManager(document.getElementById('app'), this.eventAggregator);
         this.inputHandler = new InputHandler(this.eventAggregator);
         
         // 3. 建立新的、專門化的模組
@@ -30,7 +29,7 @@ class App {
         this.persistenceService = new PersistenceService();
         this.productFactory = new ProductFactory();
 
-        // 4. 建立新的「協調器」，並將它所需要的所有工具 (依賴) 傳遞給它
+        // 4. [順序調整] 先建立 StateManager，因為 UIManager 需要它
         this.stateManager = new StateManager({
             quoteModel: this.quoteModel,
             persistenceService: this.persistenceService,
@@ -38,12 +37,18 @@ class App {
             configManager: this.configManager,
             eventAggregator: this.eventAggregator
         });
+
+        // 5. [修正注入] 最後建立 UIManager，並將 stateManager 傳遞給它
+        this.uiManager = new UIManager(
+            document.getElementById('app'), 
+            this.eventAggregator, 
+            this.stateManager // <--- 修正了這個關鍵的依賴注入
+        );
     }
 
     async run() {
         console.log("Application starting with new architecture...");
         
-        // 必須先等待設定檔載入完成
         await this.configManager.initialize();
 
         // 訂閱核心事件
@@ -55,7 +60,6 @@ class App {
         });
 
         // 觸發首次渲染
-        // 注意：我們現在從 StateManager 內部的方法來觸發首次渲染
         this.stateManager._publishStateChange(); 
 
         // 初始化使用者輸入監聽
