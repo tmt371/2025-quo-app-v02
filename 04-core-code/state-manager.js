@@ -2,8 +2,6 @@
 
 /**
  * @fileoverview The application's central orchestrator (controller).
- * It listens for user-intent events and delegates tasks to specialized
- * models, services, and strategies.
  */
 
 export class StateManager {
@@ -14,7 +12,6 @@ export class StateManager {
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
         
-        // UI 狀態獨立管理
         this.uiState = {
             inputValue: '',
             inputMode: 'width',
@@ -28,8 +25,8 @@ export class StateManager {
     }
 
     initialize() {
-        // 訂閱所有來自 InputHandler 的事件
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
+        // ... 其他訂閱維持不變 ...
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
         this.eventAggregator.subscribe('sequenceCellClicked', (data) => this._handleSequenceCellClick(data));
@@ -41,9 +38,6 @@ export class StateManager {
         this.eventAggregator.subscribe('userRequestedLoad', () => this._handleLoad());
     }
 
-    /**
-     * 發布一個包含最新資料和 UI 狀態的 stateChanged 事件
-     */
     _publishStateChange() {
         const fullState = {
             ui: this.uiState,
@@ -52,8 +46,11 @@ export class StateManager {
         this.eventAggregator.publish('stateChanged', fullState);
     }
     
-    // --- [補完] 處理數字鍵盤輸入的核心方法 ---
     _handleNumericKeyPress(key) {
+        // --- [新增] 偵錯探測器 ---
+        console.log("Key pressed:", key, "| Type:", typeof key);
+        // --- [偵錯結束] ---
+
         if (!isNaN(parseInt(key))) { // is a number
             this.uiState.inputValue += key;
         } else if (key === 'DEL') {
@@ -66,53 +63,40 @@ export class StateManager {
         this._publishStateChange();
     }
 
+    // ... 其他所有方法維持不變 ...
     _commitValue() {
         const { inputValue, inputMode, activeCell, isEditing } = this.uiState;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         const validationRules = productStrategy.getValidationRules();
         const rule = validationRules[inputMode];
-
         if (value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
             this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.` });
             this.uiState.inputValue = '';
             this._publishStateChange();
             return;
         }
-
-        // 所有資料修改都透過 Model 進行
         this.quoteModel.updateItemValue(activeCell.rowIndex, inputMode, value);
-
-        // 如果寬或高被清空，則價格也清空
         if ((inputMode === 'width' || inputMode === 'height') && value === null) {
             this.quoteModel.updateItemValue(activeCell.rowIndex, 'linePrice', null);
         }
-
         const items = this.quoteModel.getAllItems();
         const targetItem = items[activeCell.rowIndex];
-
         if (isEditing) {
             this.uiState.isEditing = false;
         } else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
-            // 如果在最後一行輸入了資料，自動新增下一行
             const newItem = productStrategy.getInitialItemData();
             this.quoteModel.insertItem(items.length, newItem);
         }
-        
         this.uiState.inputValue = '';
-        this._changeInputMode(inputMode); // 自動跳到下一個輸入格
-        // _changeInputMode 內部會發布 state change
+        this._changeInputMode(inputMode);
     }
-
     _changeInputMode(mode) {
         this.uiState.inputMode = mode;
         this.uiState.isEditing = false;
         this.uiState.selectedRowIndex = null;
-        
         const items = this.quoteModel.getAllItems();
         const nextEmptyIndex = items.findIndex(item => item[mode] === null || item[mode] === '');
-        
         if (nextEmptyIndex !== -1) {
             this.uiState.activeCell = { rowIndex: nextEmptyIndex, column: mode };
         } else {
@@ -120,14 +104,10 @@ export class StateManager {
         }
         this._publishStateChange();
     }
-
-    // --- 其他協調方法 ---
-
     _handleTableCellClick({ rowIndex, column }) {
         this.uiState.selectedRowIndex = null;
         const item = this.quoteModel.getItem(rowIndex);
         if (!item) return;
-
         if (column === 'width' || column === 'height') {
             this.uiState.inputMode = column;
             this.uiState.activeCell = { rowIndex, column };
@@ -143,12 +123,10 @@ export class StateManager {
         }
         this._publishStateChange();
     }
-
     _handleSequenceCellClick({ rowIndex }) {
         this.uiState.selectedRowIndex = (this.uiState.selectedRowIndex === rowIndex) ? null : rowIndex;
         this._publishStateChange();
     }
-
     _handleInsertRow() {
         const { selectedRowIndex } = this.uiState;
         if (selectedRowIndex === null) {
@@ -167,7 +145,6 @@ export class StateManager {
         this.uiState.selectedRowIndex = null;
         this._publishStateChange();
     }
-
     _handleDeleteRow() {
         const { selectedRowIndex } = this.uiState;
         if (selectedRowIndex === null) {
@@ -184,7 +161,6 @@ export class StateManager {
         this.uiState.selectedRowIndex = null;
         this._publishStateChange();
     }
-
     _handlePriceCalculationRequest() {
         const items = this.quoteModel.getAllItems();
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
@@ -201,16 +177,12 @@ export class StateManager {
                 }
             }
         });
-        if (needsUpdate) {
-            this._publishStateChange();
-        }
+        if (needsUpdate) { this._publishStateChange(); }
     }
-
     _handleSummationRequest() {
         this.quoteModel.calculateTotalSum();
         this._publishStateChange();
     }
-
     _handleSave() {
         const quoteData = this.quoteModel.getQuoteData();
         const result = this.persistenceService.save(quoteData);
@@ -220,7 +192,6 @@ export class StateManager {
             this.eventAggregator.publish('showNotification', { message: 'Error: Could not save quote.', type: 'error' });
         }
     }
-
     _handleLoad() {
         const result = this.persistenceService.load();
         if (result.success && result.data) {
@@ -233,6 +204,5 @@ export class StateManager {
             this.eventAggregator.publish('showNotification', { message: 'Error: Could not load quote.', type: 'error' });
         }
     }
-    
-    // 省略 _handleTableHeaderClick 因為它目前的功能比較次要
+    _handleTableHeaderClick(){}
 }
