@@ -4,16 +4,16 @@
  * @fileoverview Manages the application's state and core logic orchestration.
  */
 
-// --- [新增] 匯入 CSV 處理工具 ---
-import { dataToCsv, csvToData } from '../utils/csv-parser.js';
+// --- [修改] 將導入路徑從 '../utils/...' 修正為 './utils/...' ---
+import { dataToCsv, csvToData } from './utils/csv-parser.js';
 
 export class StateManager {
-    // --- [修改] 不再需要 PersistenceService ---
     constructor({ initialState, productFactory, configManager, eventAggregator }) {
         this.state = initialState;
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
+        // 注意：我們在第十八次編修時，將 PersistenceService 的依賴移除了，因為 Save/Load 直接在此檔案中處理
         console.log("StateManager (File Access Ready) Initialized.");
         this.initialize();
     }
@@ -28,8 +28,6 @@ export class StateManager {
         this.eventAggregator.subscribe('userRequestedDeleteRow', () => this._handleDeleteRow());
         this.eventAggregator.subscribe('userRequestedPriceCalculation', () => this._handlePriceCalculationRequest());
         this.eventAggregator.subscribe('userRequestedSummation', () => this._handleSummationRequest());
-
-        // --- [修改] 監聽新的檔案相關事件 ---
         this.eventAggregator.subscribe('userRequestedSave', () => this._handleSaveToFile());
         this.eventAggregator.subscribe('fileLoaded', (data) => this._handleFileLoad(data));
         this.eventAggregator.subscribe('userRequestedExportCSV', () => this._handleExportCSV());
@@ -43,7 +41,6 @@ export class StateManager {
         this.eventAggregator.publish('stateChanged', this.state);
     }
     
-    // --- [新增] 輔助方法：觸發檔案下載 ---
     _triggerDownload(content, fileName, contentType) {
         const blob = new Blob([content], { type: contentType });
         const url = URL.createObjectURL(blob);
@@ -56,7 +53,6 @@ export class StateManager {
         URL.revokeObjectURL(url);
     }
 
-    // --- [新增] 輔助方法：產生帶有日期時間的檔名 ---
     _generateFileName(extension) {
         const now = new Date();
         const yyyy = now.getFullYear();
@@ -67,12 +63,9 @@ export class StateManager {
         return `quote-${yyyy}${mm}${dd}${hh}${min}.${extension}`;
     }
 
-    /**
-     * @fileoverview [修改] 需求一：實現 Save 功能為下載 JSON 檔案
-     */
     _handleSaveToFile() {
         try {
-            const jsonString = JSON.stringify(this.state.quoteData, null, 2); // 格式化 JSON，方便閱讀
+            const jsonString = JSON.stringify(this.state.quoteData, null, 2);
             const fileName = this._generateFileName('json');
             this._triggerDownload(jsonString, fileName, 'application/json');
             this.eventAggregator.publish('showNotification', { message: 'Quote file is being downloaded...' });
@@ -82,9 +75,6 @@ export class StateManager {
         }
     }
     
-    /**
-     * @fileoverview [修改] 需求二：實現 Load 功能為讀取使用者選擇的檔案
-     */
     _handleFileLoad({ fileName, content }) {
         let loadedData = null;
         try {
@@ -110,9 +100,6 @@ export class StateManager {
         }
     }
 
-    /**
-     * @fileoverview [新增] 需求三：實現匯出 CSV 功能
-     */
     _handleExportCSV() {
         try {
             const csvString = dataToCsv(this.state.quoteData);
