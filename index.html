@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quotation App v0.5</title> <style>
+    <title>Ez Blinds Quote v0.2</title>
+    <style>
         :root {
             --panel-border-color: #d1d5db;
             --keyboard-bg-color: #f3f4f6;
             --app-bg-color: #ffffff;
-            --highlight-color: #a0d3e8; /* 水藍色 */
+            --highlight-color: #a0d3e8;
             --primary-color: #1a237e;
             --medium-blue-color: #1976D2;
         }
@@ -46,21 +47,18 @@
         .results-table th:first-child, .results-table td:first-child {
             width: 40px;
         }
-        /* --- [新增] 讓項次欄有手型游標，提示可點擊 --- */
         .results-table th[data-column="sequence"], .results-table td[data-column="sequence"] {
             cursor: pointer;
         }
         .results-table thead { background-color: #f2f2f2; }
         .results-table th[data-column="TYPE"] { cursor: pointer; }
         .results-table td.highlighted-cell { background-color: var(--highlight-color); }
-        /* --- [新增] 項次被選中時的高亮樣式 --- */
         .results-table td.selected-row-highlight {
             background-color: var(--highlight-color);
             font-weight: bold;
         }
         .type-bo1 { font-weight: bold; font-style: italic; }
         .type-sn { color: var(--medium-blue-color); font-weight: bold; }
-
         .keyboard-panel {
             flex-shrink: 0; background-color: var(--keyboard-bg-color);
             border-top: 1px solid var(--panel-border-color);
@@ -156,6 +154,8 @@
         #key-save { background-color: #dcfce7; }
         #key-load { background-color: #ffedd5; }
         #key-email { background-color: #e0e7ff; }
+        /* --- [新增] Export CSV 按鈕的樣式 --- */
+        #key-export-csv { background-color: #d1fae5; }
     </style>
 </head>
 <body>
@@ -212,8 +212,11 @@
             <button id="key-save">Save</button>
             <button id="key-load">Load</button>
             <button id="key-email">Email</button>
+            <button id="key-export-csv">Export CSV</button> 
         </div>
     </div>
+
+    <input type="file" id="file-loader" style="display: none;" accept=".json,.csv">
     
     <script type="module" src="./04-core-code/main.js"></script>
 </body>

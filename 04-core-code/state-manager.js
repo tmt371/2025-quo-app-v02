@@ -4,14 +4,17 @@
  * @fileoverview Manages the application's state and core logic orchestration.
  */
 
+// --- [新增] 匯入 CSV 處理工具 ---
+import { dataToCsv, csvToData } from '../utils/csv-parser.js';
+
 export class StateManager {
-    constructor({ initialState, persistenceService, productFactory, configManager, eventAggregator }) {
+    // --- [修改] 不再需要 PersistenceService ---
+    constructor({ initialState, productFactory, configManager, eventAggregator }) {
         this.state = initialState;
-        this.persistenceService = persistenceService;
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
-        console.log("StateManager (Simplified) Initialized.");
+        console.log("StateManager (File Access Ready) Initialized.");
         this.initialize();
     }
 
@@ -25,8 +28,11 @@ export class StateManager {
         this.eventAggregator.subscribe('userRequestedDeleteRow', () => this._handleDeleteRow());
         this.eventAggregator.subscribe('userRequestedPriceCalculation', () => this._handlePriceCalculationRequest());
         this.eventAggregator.subscribe('userRequestedSummation', () => this._handleSummationRequest());
-        this.eventAggregator.subscribe('userRequestedSave', () => this._handleSave());
-        this.eventAggregator.subscribe('userRequestedLoad', () => this._handleLoad());
+
+        // --- [修改] 監聽新的檔案相關事件 ---
+        this.eventAggregator.subscribe('userRequestedSave', () => this._handleSaveToFile());
+        this.eventAggregator.subscribe('fileLoaded', (data) => this._handleFileLoad(data));
+        this.eventAggregator.subscribe('userRequestedExportCSV', () => this._handleExportCSV());
     }
 
     publishInitialState() {
@@ -36,22 +42,97 @@ export class StateManager {
     _publishStateChange() {
         this.eventAggregator.publish('stateChanged', this.state);
     }
-
-    _handleNumericKeyPress(key) {
-        if (!isNaN(parseInt(key))) {
-            this.state.ui.inputValue += key;
-        } else if (key === 'DEL') {
-            this.state.ui.inputValue = this.state.ui.inputValue.slice(0, -1);
-        } else if (key === 'W' || key === 'H') {
-            this._changeInputMode(key === 'W' ? 'width' : 'height');
-            return;
-        } else if (key === 'ENT') {
-            this._commitValue();
-            return;
-        }
-        this._publishStateChange();
+    
+    // --- [新增] 輔助方法：觸發檔案下載 ---
+    _triggerDownload(content, fileName, contentType) {
+        const blob = new Blob([content], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
+    // --- [新增] 輔助方法：產生帶有日期時間的檔名 ---
+    _generateFileName(extension) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        return `quote-${yyyy}${mm}${dd}${hh}${min}.${extension}`;
+    }
+
+    /**
+     * @fileoverview [修改] 需求一：實現 Save 功能為下載 JSON 檔案
+     */
+    _handleSaveToFile() {
+        try {
+            const jsonString = JSON.stringify(this.state.quoteData, null, 2); // 格式化 JSON，方便閱讀
+            const fileName = this._generateFileName('json');
+            this._triggerDownload(jsonString, fileName, 'application/json');
+            this.eventAggregator.publish('showNotification', { message: 'Quote file is being downloaded...' });
+        } catch (error) {
+            console.error("Failed to save JSON file:", error);
+            this.eventAggregator.publish('showNotification', { message: 'Error creating quote file.', type: 'error' });
+        }
+    }
+    
+    /**
+     * @fileoverview [修改] 需求二：實現 Load 功能為讀取使用者選擇的檔案
+     */
+    _handleFileLoad({ fileName, content }) {
+        let loadedData = null;
+        try {
+            if (fileName.toLowerCase().endsWith('.json')) {
+                loadedData = JSON.parse(content);
+            } else if (fileName.toLowerCase().endsWith('.csv')) {
+                loadedData = csvToData(content);
+            } else {
+                this.eventAggregator.publish('showNotification', { message: `Unsupported file type: ${fileName}`, type: 'error' });
+                return;
+            }
+
+            if (loadedData && loadedData.rollerBlindItems) {
+                this.state.quoteData = loadedData;
+                this._publishStateChange();
+                this.eventAggregator.publish('showNotification', { message: `Successfully loaded data from ${fileName}` });
+            } else {
+                throw new Error("Parsed data is not in a valid format.");
+            }
+        } catch (error) {
+            console.error("Failed to load file:", error);
+            this.eventAggregator.publish('showNotification', { message: `Error loading file: ${error.message}`, type: 'error' });
+        }
+    }
+
+    /**
+     * @fileoverview [新增] 需求三：實現匯出 CSV 功能
+     */
+    _handleExportCSV() {
+        try {
+            const csvString = dataToCsv(this.state.quoteData);
+            const fileName = this._generateFileName('csv');
+            this._triggerDownload(csvString, fileName, 'text/csv;charset=utf-8;');
+            this.eventAggregator.publish('showNotification', { message: 'CSV file is being downloaded...' });
+        } catch (error) {
+            console.error("Failed to export CSV file:", error);
+            this.eventAggregator.publish('showNotification', { message: 'Error creating CSV file.', type: 'error' });
+        }
+    }
+    
+    // ... 其他所有方法維持不變 ...
+    _handleNumericKeyPress(key) {
+        if (!isNaN(parseInt(key))) { this.state.ui.inputValue += key; } 
+        else if (key === 'DEL') { this.state.ui.inputValue = this.state.ui.inputValue.slice(0, -1); } 
+        else if (key === 'W' || key === 'H') { this._changeInputMode(key === 'W' ? 'width' : 'height'); return; } 
+        else if (key === 'ENT') { this._commitValue(); return; }
+        this._publishStateChange();
+    }
     _commitValue() {
         const { inputValue, inputMode, activeCell, isEditing } = this.state.ui;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
@@ -60,28 +141,22 @@ export class StateManager {
         const rule = validationRules[inputMode];
         if (value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
             this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.` });
-            this.state.ui.inputValue = '';
-            this._publishStateChange();
-            return;
+            this.state.ui.inputValue = ''; this._publishStateChange(); return;
         }
         const items = this.state.quoteData.rollerBlindItems;
         const targetItem = items[activeCell.rowIndex];
         if (targetItem) {
             targetItem[inputMode] = value;
-            if ((inputMode === 'width' || inputMode === 'height') && value === null) {
-                targetItem.linePrice = null;
-            }
+            if ((inputMode === 'width' || inputMode === 'height') && value === null) { targetItem.linePrice = null; }
         }
-        if (isEditing) {
-            this.state.ui.isEditing = false;
-        } else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
+        if (isEditing) { this.state.ui.isEditing = false; } 
+        else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
             const newItem = productStrategy.getInitialItemData();
             items.push(newItem);
         }
         this.state.ui.inputValue = '';
         this._changeInputMode(inputMode);
     }
-
     _changeInputMode(mode) {
         this.state.ui.inputMode = mode;
         this.state.ui.isEditing = false;
@@ -95,7 +170,6 @@ export class StateManager {
         }
         this._publishStateChange();
     }
-
     _handleTableCellClick({ rowIndex, column }) {
         this.state.ui.selectedRowIndex = null;
         const item = this.state.quoteData.rollerBlindItems[rowIndex];
@@ -115,70 +189,54 @@ export class StateManager {
         }
         this._publishStateChange();
     }
-    
     _handleSequenceCellClick({ rowIndex }) {
         this.state.ui.selectedRowIndex = (this.state.ui.selectedRowIndex === rowIndex) ? null : rowIndex;
         this._publishStateChange();
     }
-
-    /**
-     * @fileoverview [修改] 需求二：優化插入後的焦點跳轉
-     */
     _handleInsertRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
             return;
         }
-
         const items = this.state.quoteData.rollerBlindItems;
         const selectedItem = items[selectedRowIndex];
         if (selectedRowIndex === items.length - 1 && !selectedItem.width && !selectedItem.height) {
             this.eventAggregator.publish('showNotification', { message: 'Cannot insert after the final empty row.' });
             return;
         }
-        
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         const newItem = productStrategy.getInitialItemData();
         const newRowIndex = selectedRowIndex + 1;
         items.splice(newRowIndex, 0, newItem);
-        
-        // --- [修改] 將焦點直接設定到新插入行的寬度儲存格 ---
         this.state.ui.activeCell = { rowIndex: newRowIndex, column: 'width' };
         this.state.ui.inputMode = 'width';
-        this.state.ui.selectedRowIndex = null; // 清除項次選擇
-        
+        this.state.ui.selectedRowIndex = null;
         this._publishStateChange();
-        console.log(`Row inserted at index ${newRowIndex} and focus set.`);
     }
-
     _handleDeleteRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' });
             return;
         }
-        
         const items = this.state.quoteData.rollerBlindItems;
         const selectedItem = items[selectedRowIndex];
         const isLastItem = selectedRowIndex === items.length - 1;
-
         if (isLastItem && (selectedItem.width || selectedItem.height)) {
             selectedItem.width = null;
             selectedItem.height = null;
             selectedItem.fabricType = null;
             selectedItem.linePrice = null;
         } else if (isLastItem && !selectedItem.width && !selectedItem.height) {
-             this.eventAggregator.publish('showNotification', { message: 'Cannot delete the final empty row.' });
-             return;
+            this.eventAggregator.publish('showNotification', { message: 'Cannot delete the final empty row.' });
+            return;
         } else {
             items.splice(selectedRowIndex, 1);
         }
-        
         this.state.ui.selectedRowIndex = null;
         this._publishStateChange();
     }
-
     _handleTableHeaderClick({ column }) {
         if (column !== 'TYPE') return;
         const items = this.state.quoteData.rollerBlindItems;
@@ -195,8 +253,6 @@ export class StateManager {
         });
         this._publishStateChange();
     }
-    
-    // ... 其他方法維持不變 ...
     _handlePriceCalculationRequest() {
         const items = this.state.quoteData.rollerBlindItems;
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
@@ -213,9 +269,7 @@ export class StateManager {
                 }
             }
         });
-        if (needsUpdate) {
-            this._publishStateChange();
-        }
+        if (needsUpdate) { this._publishStateChange(); }
     }
     _handleSummationRequest() {
         const items = this.state.quoteData.rollerBlindItems;
@@ -231,25 +285,5 @@ export class StateManager {
         const total = items.reduce((sum, item) => sum + (item.linePrice || 0), 0);
         this.state.quoteData.summary.totalSum = total;
         this._publishStateChange();
-    }
-    _handleSave() {
-        const result = this.persistenceService.save(this.state.quoteData);
-        if (result.success) {
-            this.eventAggregator.publish('showNotification', { message: 'Quote saved successfully!' });
-        } else {
-            this.eventAggregator.publish('showNotification', { message: 'Error: Could not save quote.', type: 'error' });
-        }
-    }
-    _handleLoad() {
-        const result = this.persistenceService.load();
-        if (result.success && result.data) {
-            this.state.quoteData = result.data;
-            this._publishStateChange();
-            this.eventAggregator.publish('showNotification', { message: 'Quote loaded successfully!' });
-        } else if (result.success && !result.data) {
-            this.eventAggregator.publish('showNotification', { message: 'No saved quote found.' });
-        } else {
-            this.eventAggregator.publish('showNotification', { message: 'Error: Could not load quote.', type: 'error' });
-        }
     }
 }

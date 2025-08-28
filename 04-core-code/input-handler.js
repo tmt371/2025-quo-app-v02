@@ -10,8 +10,43 @@ export class InputHandler {
         this._setupTableInteraction();
         this._setupFunctionKeys();
         this._setupPanelToggles();
+        this._setupFileLoader(); // --- [新增] 初始化檔案載入器的監聽 ---
     }
     
+    // --- [新增開始] ---
+    /**
+     * 設定隱藏的檔案輸入框的事件監聽
+     */
+    _setupFileLoader() {
+        const fileLoader = document.getElementById('file-loader');
+        if (fileLoader) {
+            fileLoader.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) {
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    // 發布帶有檔案名稱和內容的事件
+                    this.eventAggregator.publish('fileLoaded', {
+                        fileName: file.name,
+                        content: content
+                    });
+                };
+                reader.onerror = () => {
+                    this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
+                };
+                reader.readAsText(file);
+
+                // 清空 input 的 value，確保下次選擇同一個檔案也能觸發 change 事件
+                event.target.value = '';
+            });
+        }
+    }
+    // --- [新增結束] ---
+
     _setupPanelToggles() {
         const numericToggle = document.getElementById('panel-toggle');
         if (numericToggle) {
@@ -57,17 +92,20 @@ export class InputHandler {
             });
         }
 
+        // --- [修改] Load 按鈕現在觸發檔案選擇器 ---
         const loadButton = document.getElementById('key-load');
-        if (loadButton) {
+        const fileLoader = document.getElementById('file-loader');
+        if (loadButton && fileLoader) {
             loadButton.addEventListener('click', () => {
-                this.eventAggregator.publish('userRequestedLoad');
+                fileLoader.click(); // 模擬點擊隱藏的 input[type=file]
             });
         }
 
-        const emailButton = document.getElementById('key-email');
-        if (emailButton) {
-            emailButton.addEventListener('click', () => {
-                this.eventAggregator.publish('userRequestedEmailQuote');
+        // --- [新增] Export CSV 按鈕的事件監聽 ---
+        const exportCsvButton = document.getElementById('key-export-csv');
+        if (exportCsvButton) {
+            exportCsvButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userRequestedExportCSV');
             });
         }
     }
@@ -93,35 +131,26 @@ export class InputHandler {
                 const target = event.target;
                 const isHeader = target.tagName === 'TH';
                 const isCell = target.tagName === 'TD';
-
                 if (!isHeader && !isCell) return;
-
                 const column = target.dataset.column;
-                
                 if (isHeader) {
-                    // 點擊表頭的邏輯
                     if (column === 'Price') {
                         this.eventAggregator.publish('userRequestedPriceCalculation');
-                    } else if (column !== 'sequence') { // 忽略對項次表頭的點擊
+                    } else if (column !== 'sequence') {
                         this.eventAggregator.publish('tableHeaderClicked', { column });
                     }
-                } else { // 點擊儲存格的邏輯
+                } else {
                     const rowIndex = target.parentElement.dataset.rowIndex;
-                    
-                    // --- [修改開始] ---
                     if (column === 'sequence') {
-                        // 如果點擊的是項次欄，發布專門的事件
                         this.eventAggregator.publish('sequenceCellClicked', { 
                             rowIndex: parseInt(rowIndex, 10)
                         });
                     } else {
-                        // 否則，維持原有的儲存格點擊事件
                         this.eventAggregator.publish('tableCellClicked', { 
                             rowIndex: parseInt(rowIndex, 10), 
                             column 
                         });
                     }
-                    // --- [修改結束] ---
                 }
             });
         }
