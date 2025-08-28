@@ -19,7 +19,7 @@ export class StateManager {
         // ... 其他訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
-        this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data)); // 這個訂閱現在將恢復功能
+        this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
         this.eventAggregator.subscribe('sequenceCellClicked', (data) => this._handleSequenceCellClick(data));
         this.eventAggregator.subscribe('userRequestedInsertRow', () => this._handleInsertRow());
         this.eventAggregator.subscribe('userRequestedDeleteRow', () => this._handleDeleteRow());
@@ -120,29 +120,38 @@ export class StateManager {
         this.state.ui.selectedRowIndex = (this.state.ui.selectedRowIndex === rowIndex) ? null : rowIndex;
         this._publishStateChange();
     }
-    
+
+    /**
+     * @fileoverview [修改] 需求二：優化插入後的焦點跳轉
+     */
     _handleInsertRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
             return;
         }
+
         const items = this.state.quoteData.rollerBlindItems;
         const selectedItem = items[selectedRowIndex];
         if (selectedRowIndex === items.length - 1 && !selectedItem.width && !selectedItem.height) {
             this.eventAggregator.publish('showNotification', { message: 'Cannot insert after the final empty row.' });
             return;
         }
+        
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         const newItem = productStrategy.getInitialItemData();
-        items.splice(selectedRowIndex + 1, 0, newItem);
-        this.state.ui.selectedRowIndex = null;
+        const newRowIndex = selectedRowIndex + 1;
+        items.splice(newRowIndex, 0, newItem);
+        
+        // --- [修改] 將焦點直接設定到新插入行的寬度儲存格 ---
+        this.state.ui.activeCell = { rowIndex: newRowIndex, column: 'width' };
+        this.state.ui.inputMode = 'width';
+        this.state.ui.selectedRowIndex = null; // 清除項次選擇
+        
         this._publishStateChange();
+        console.log(`Row inserted at index ${newRowIndex} and focus set.`);
     }
 
-    /**
-     * @fileoverview [修改] 需求一：優化刪除邏輯
-     */
     _handleDeleteRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
@@ -154,18 +163,15 @@ export class StateManager {
         const selectedItem = items[selectedRowIndex];
         const isLastItem = selectedRowIndex === items.length - 1;
 
-        // 如果選中的是最後一行，且該行有資料，則僅清空資料
         if (isLastItem && (selectedItem.width || selectedItem.height)) {
             selectedItem.width = null;
             selectedItem.height = null;
             selectedItem.fabricType = null;
             selectedItem.linePrice = null;
         } else if (isLastItem && !selectedItem.width && !selectedItem.height) {
-            // 如果選中的是最後一行且為空，不作用
              this.eventAggregator.publish('showNotification', { message: 'Cannot delete the final empty row.' });
              return;
         } else {
-            // 否則 (不是最後一行)，正常刪除
             items.splice(selectedRowIndex, 1);
         }
         
@@ -173,31 +179,20 @@ export class StateManager {
         this._publishStateChange();
     }
 
-    /**
-     * @fileoverview [修改] 需求二：修復 TYPE 表頭功能
-     */
     _handleTableHeaderClick({ column }) {
         if (column !== 'TYPE') return;
-
         const items = this.state.quoteData.rollerBlindItems;
         if (items.length === 0) return;
-
-        // 找到第一個有內容的項目來決定下一個類型是什麼
         const firstPopulatedItem = items.find(item => item.width || item.height);
         const currentType = firstPopulatedItem ? firstPopulatedItem.fabricType : null;
-        
         const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
         const currentIndex = TYPE_SEQUENCE.indexOf(currentType);
-        // 如果當前類型不存在或想從頭開始，下一個就是 BO
         const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
-
         items.forEach(item => {
-            // 只更新有寬或高的行
             if (item.width || item.height) {
                 item.fabricType = nextType;
             }
         });
-        
         this._publishStateChange();
     }
     
