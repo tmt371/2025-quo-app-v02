@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ez Blinds Quote v0.2</title>
     <style>
-        /* ... 大部分樣式維持不變 ... */
         :root {
             --panel-border-color: #d1d5db;
             --keyboard-bg-color: #f3f4f6;
@@ -118,7 +117,7 @@
             font-size: 2.2em;
             padding-bottom: 25px;
         }
-        /* --- [修改] 重新補回遺失的樣式 --- */
+        /* --- [修正] 重新補回遺失的樣式 --- */
         .key-enter-style {
             background-color: #FCFCFC; /* 2% 淺灰色 */
         }
@@ -131,7 +130,9 @@
             font-weight: bold;
         }
         #function-panel {
+            /* --- [修正] 重新加上 position: relative 讓呼叫鍵能正確定位 --- */
             position: relative;
+            
             position: fixed; top: 0; right: 0;
             width: 180px; height: 100%;
             background-color: #e5e7eb;
@@ -268,6 +269,10 @@
         </div>
     </div>
     <div id="function-panel">
+        <div id="function-panel-toggle" title="Toggle Function Panel">
+            <svg class="toggle-arrow arrow-left" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <svg class="toggle-arrow arrow-right" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+        </div>
         <div>
             <div class="function-buttons">
                 <button id="key-insert">insert</button>
