@@ -114,12 +114,14 @@
         .key-function { background-color: #e5e7eb; }
         .key-enter { grid-row: span 2; background-color: #e5e7eb; font-weight: bold; font-size: 2.2em; padding-bottom: 25px; }
         .key-sum { background-color: #dbeafe; font-weight: bold; color: #1e40af; }
-        /* --- [新增] 需求一：Clear 按鈕的樣式 --- */
         .key-clear {
-            color: #ec4899; /* 桃紅色 */
+            color: #ec4899;
             font-weight: bold;
         }
         #function-panel {
+            /* --- [新增] 加上 position: relative 讓呼叫鍵能正確定位 --- */
+            position: relative;
+            
             position: fixed; top: 0; right: 0;
             width: 180px; height: 100%;
             background-color: #e5e7eb;
@@ -158,7 +160,7 @@
             flex-direction: column;
             gap: 15px;
         }
-        .function-buttons div:first-child { margin-top: 50px; } /* 為第一組按鈕添加頂部間距 */
+        .function-buttons div:first-child { margin-top: 50px; }
         .function-buttons button {
             width: 100%; padding: 10px; font-size: 1.1em;
             background-color: #fff; border: 1px solid #ccc; border-radius: 4px;
@@ -179,6 +181,35 @@
             color: #991b1b;
             font-weight: bold;
             border-color: #fca5a5;
+        }
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        .toast-message {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideInAndFadeOut 4s forwards;
+        }
+        .toast-message.error {
+            background-color: #c0392b;
+        }
+        @keyframes slideInAndFadeOut {
+            0% { opacity: 0; transform: translateX(100%); }
+            15% { opacity: 1; transform: translateX(0); }
+            85% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(100%); }
         }
     </style>
 </head>
@@ -221,10 +252,15 @@
                 <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="H" class="key-function">H</button>
                 <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="ENT" class="key-enter">&#8629;</button>
                 <button data-key="0" class="key-zero">0</button>
-                <button data-key="DEL" style="font-size: 1.8em;">&#x2B05;</button> </div>
+                <button data-key="DEL" style="font-size: 1.8em;">&#x2B05;</button>
+            </div>
         </div>
     </div>
     <div id="function-panel">
+        <div id="function-panel-toggle" title="Toggle Function Panel">
+            <svg class="toggle-arrow arrow-left" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+            <svg class="toggle-arrow arrow-right" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+        </div>
         <div>
             <div class="function-buttons">
                 <button id="key-insert">insert</button>
