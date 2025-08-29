@@ -96,8 +96,8 @@ html, body {
 }
 .panel-toggle {
     position: absolute; top: 5px;
-    /* --- [修改] 需求一：將呼叫鍵從 50% (中央) 移到 30% (偏左) --- */
-    left: 30%;
+    /* --- [修改] 需求二：將呼叫鍵從 30% (偏左) 移到 18% (更左) --- */
+    left: 18%;
     transform: translateX(-50%);
     width: 80px; height: 20px;
     border: 1px solid #ccc; background-color: #fff; border-radius: 10px;
@@ -149,8 +149,8 @@ html, body {
 #function-panel {
     position: relative;
     position: fixed; top: 0; right: 0;
-    /* --- [修改] 需求二：將寬度從 180px 增加到 297px --- */
-    width: 297px;
+    /* --- [修改] 需求三：將寬度從 297px 增加到 324px --- */
+    width: 324px;
     height: 100%;
     background-color: #e5e7eb;
     border-left: 1px solid var(--panel-border-color);
@@ -162,7 +162,8 @@ html, body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* 改為從頂部開始排列 */
+    /* --- [修改] 需求一：將按鈕網格推向底部 --- */
+    justify-content: flex-end;
 }
 #function-panel.is-expanded { transform: translateX(0); }
 #function-panel-toggle {
@@ -180,18 +181,15 @@ html, body {
     width: 24px; height: 24px; transition: opacity 0.3s; position: absolute;
 }
 #function-panel .arrow-left { opacity: 1; }
-.function-panel .arrow-right { opacity: 0; }
+#function-panel .arrow-right { opacity: 0; }
 #function-panel.is-expanded .arrow-left { opacity: 0; }
 #function-panel.is-expanded .arrow-right { opacity: 1; }
-
-/* --- [修改] 需求三：為新的網格佈局準備樣式 --- */
 .function-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    margin-top: 50px;
-    height: 100%;
-    align-content: space-between; /* 讓內容上下分佈 */
+    /* --- [修改] 需求一：移除 margin-top，讓其自然置底 --- */
+    /* margin-top: 50px; */ 
 }
 .function-grid button {
     width: 100%;
@@ -214,9 +212,8 @@ html, body {
 }
 #key-save { background-color: #dcfce7; }
 #key-load { background-color: #ffedd5; }
-#key-export { background-color: #d1fae5; } /* Export CSV 更名為 Export */
+#key-export { background-color: #d1fae5; }
 #key-reset {
-    /* --- [修改] 需求三：RESET 按鈕使用紅色底色 --- */
     background-color: #ef4444;
     color: white;
     font-weight: bold;
