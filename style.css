@@ -46,7 +46,7 @@ html, body {
     cursor: pointer;
 }
 .results-table thead { background-color: #f2f2f2; }
-.results-table th[data-column="TYPE"] { cursor: pointer; }
+
 .results-table td.active-input-cell {
     box-shadow: inset 0 0 0 2px var(--primary-color);
 }
