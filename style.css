@@ -62,8 +62,11 @@ html, body {
     position: relative; transition: all 0.3s ease-in-out;
     box-sizing: border-box;
 }
+
+/* --- [修改] 將 input-area-container 改為 Grid 佈局，以便精確對齊 --- */
 .input-area-container {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 模擬下方鍵盤的 4 欄佈局 */
     gap: 8px;
     margin-bottom: 15px;
     align-items: stretch;
@@ -72,31 +75,41 @@ html, body {
     border: 1px solid #ccc; background-color: #fff;
     padding: 10px; font-size: 1.8em; text-align: right;
     border-radius: 4px; display: flex; align-items: center; justify-content: flex-end;
-    flex-grow: 1;
-    flex-shrink: 1;
-    flex-basis: 120px;
-    min-width: 100px;
+    /* --- [修改] 讓顯示框佔據第 3, 4 欄，並向左偏移 --- */
+    grid-column: 3 / 5;
+    grid-row: 2 / 3;
+    margin-right: 20px;
 }
-.function-keys {
-    flex-grow: 2;
+/* --- [移除] .function-keys 因為佈局已完全改變 --- */
+.function-keys { display: none; }
+
+/* --- [新增] 用於放置 BO, BO1... 等 6 個按鈕的新網格 --- */
+.batch-keys-grid {
+    grid-column: 1 / 3; /* 佔據父層網格的前 2 欄 */
+    grid-row: 1 / 3;    /* 佔據父層網格的前 2 行 */
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(3, 1fr); /* 內部再切分為 3 欄 */
     gap: 8px;
 }
+.batch-keys-grid button {
+    padding: 12px 5px; font-size: 1.1em;
+    cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff;
+    display: flex; justify-content: center; align-items: center; font-weight: 500;
+}
+
 .virtual-keyboard {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
 }
-.virtual-keyboard, .function-keys, .input-display { transition: opacity 0.2s, visibility 0.2s; }
-.virtual-keyboard button, .function-keys button {
-    padding: 12px 5px; font-size: 1.1em;
+.virtual-keyboard, .input-display { transition: opacity 0.2s, visibility 0.2s; }
+.virtual-keyboard button {
+    padding: 12px 5px; font-size: 1.3em;
     cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff;
     display: flex; justify-content: center; align-items: center; font-weight: 500;
 }
 .panel-toggle {
     position: absolute; top: 5px;
-    /* --- [修改] 需求二：將呼叫鍵從 30% (偏左) 移到 18% (更左) --- */
     left: 18%;
     transform: translateX(-50%);
     width: 80px; height: 20px;
@@ -128,28 +141,27 @@ html, body {
 .virtual-keyboard .key-del-style {
     background-color: #F2F2F2;
 }
-.key-sum { background-color: #dbeafe; font-weight: bold; color: #1e40af; }
-.key-clear {
+.batch-keys-grid .key-sum { background-color: #dbeafe; font-weight: bold; color: #1e40af; }
+.batch-keys-grid .key-clear {
     color: #ec4899;
     font-weight: bold;
 }
-.key-batch-price {
+.batch-keys-grid .key-batch-price {
     color: #059669;
     font-weight: bold;
     font-size: 1.5em !important;
 }
-.key-batch-bo1 {
+.batch-keys-grid .key-batch-bo1 {
     font-weight: bold;
     font-style: italic;
 }
-.key-batch-sn {
+.batch-keys-grid .key-batch-sn {
     color: var(--medium-blue-color);
     font-weight: bold;
 }
 #function-panel {
     position: relative;
     position: fixed; top: 0; right: 0;
-    /* --- [修改] 需求三：將寬度從 297px 增加到 324px --- */
     width: 324px;
     height: 100%;
     background-color: #e5e7eb;
@@ -162,7 +174,6 @@ html, body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    /* --- [修改] 需求一：將按鈕網格推向底部 --- */
     justify-content: flex-end;
 }
 #function-panel.is-expanded { transform: translateX(0); }
@@ -188,8 +199,6 @@ html, body {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    /* --- [修改] 需求一：移除 margin-top，讓其自然置底 --- */
-    /* margin-top: 50px; */ 
 }
 .function-grid button {
     width: 100%;
@@ -206,7 +215,6 @@ html, body {
     opacity: 0.5;
     cursor: not-allowed;
 }
-/* 移除舊的 .function-buttons 容器樣式 */
 .function-buttons {
    display: none;
 }
