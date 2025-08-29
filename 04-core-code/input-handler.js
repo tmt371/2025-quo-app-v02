@@ -11,25 +11,30 @@ export class InputHandler {
         this._setupFunctionKeys();
         this._setupPanelToggles();
         this._setupFileLoader();
-        this._setupPhysicalKeyboard(); // --- [新增] 初始化實體鍵盤監聽 ---
+        this._setupPhysicalKeyboard();
     }
     
-    // --- [新增] 實體鍵盤監聽的完整邏輯 ---
     _setupPhysicalKeyboard() {
         window.addEventListener('keydown', (event) => {
-            // 如果焦點在任何 input 或 textarea 中，則不觸發快捷鍵，以備未來擴充
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
                 return;
             }
 
             let keyToPublish = null;
-            let eventToPublish = 'numericKeyPressed'; // 預設發布數字鍵盤事件
+            let eventToPublish = 'numericKeyPressed';
 
-            // 處理數字鍵 0-9 (包括數字鍵盤和主鍵盤)
+            // --- [修改] 增加對方向鍵的處理 ---
+            const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+            if (arrowKeys.includes(event.key)) {
+                event.preventDefault();
+                const direction = event.key.replace('Arrow', '').toLowerCase();
+                this.eventAggregator.publish('userMovedActiveCell', { direction });
+                return; // 處理完方向鍵後結束
+            }
+
             if (event.key >= '0' && event.key <= '9') {
                 keyToPublish = event.key;
             } 
-            // 處理功能鍵
             else {
                 switch (event.key.toLowerCase()) {
                     case 'w':
@@ -40,20 +45,18 @@ export class InputHandler {
                         break;
                     case 'enter':
                         keyToPublish = 'ENT';
-                        event.preventDefault(); // 防止 Enter 鍵觸發瀏覽器預設行為 (如表單提交)
+                        event.preventDefault();
                         break;
                     case 'backspace':
                         keyToPublish = 'DEL';
-                        event.preventDefault(); // 防止退位鍵觸發瀏覽器返回上一頁
+                        event.preventDefault();
                         break;
                     case 'delete':
-                        // 對應到我們的「清空本列 (C)」功能
                         eventToPublish = 'userRequestedClearRow';
                         break;
                 }
             }
 
-            // 如果有需要發布的事件，就發布它
             if (keyToPublish !== null) {
                 this.eventAggregator.publish(eventToPublish, { key: keyToPublish });
             } else if (eventToPublish === 'userRequestedClearRow') {
@@ -62,42 +65,38 @@ export class InputHandler {
         });
     }
 
-    _setupFileLoader() {
-        const fileLoader = document.getElementById('file-loader');
-        if (fileLoader) {
-            fileLoader.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (!file) { return; }
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const content = e.target.result;
-                    this.eventAggregator.publish('fileLoaded', { fileName: file.name, content: content });
-                };
-                reader.onerror = () => {
-                    this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
-                };
-                reader.readAsText(file);
-                event.target.value = '';
-            });
-        }
-    }
-    
-    _setupPanelToggles() {
-        const numericToggle = document.getElementById('panel-toggle');
-        if (numericToggle) {
-            numericToggle.addEventListener('click', () => {
-                this.eventAggregator.publish('userToggledNumericKeyboard');
-            });
-        }
-        const functionToggle = document.getElementById('function-panel-toggle');
-        if (functionToggle) {
-            functionToggle.addEventListener('click', () => {
-                this.eventAggregator.publish('userToggledFunctionKeyboard');
-            });
-        }
-    }
-
     _setupFunctionKeys() {
+        // --- [修改] 移除 F1, F2，新增 BO, BO1, SN, $ 的事件監聽 ---
+        
+        // 批次設定布料款式
+        const batchBoButton = document.getElementById('key-batch-bo');
+        if (batchBoButton) {
+            batchBoButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userBatchSetType', { fabricType: 'BO' });
+            });
+        }
+        const batchBo1Button = document.getElementById('key-batch-bo1');
+        if (batchBo1Button) {
+            batchBo1Button.addEventListener('click', () => {
+                this.eventAggregator.publish('userBatchSetType', { fabricType: 'BO1' });
+            });
+        }
+        const batchSnButton = document.getElementById('key-batch-sn');
+        if (batchSnButton) {
+            batchSnButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userBatchSetType', { fabricType: 'SN' });
+            });
+        }
+        
+        // 批次計算價格
+        const batchPriceButton = document.getElementById('key-batch-price');
+        if (batchPriceButton) {
+            batchPriceButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userRequestedPriceCalculation');
+            });
+        }
+
+        // --- 以下為既有功能按鈕，維持不變 ---
         const clearButton = document.getElementById('key-clear');
         if (clearButton) {
             clearButton.addEventListener('click', () => {
@@ -114,7 +113,7 @@ export class InputHandler {
         if (insertButton) {
             insertButton.addEventListener('click', () => {
                 this.eventAggregator.publish('userRequestedInsertRow');
-});
+            });
         }
         const deleteButton = document.getElementById('key-delete');
         if (deleteButton) {
@@ -149,6 +148,40 @@ export class InputHandler {
         }
     }
 
+    // ... 其他方法維持不變 ...
+    _setupFileLoader() {
+        const fileLoader = document.getElementById('file-loader');
+        if (fileLoader) {
+            fileLoader.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) { return; }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    this.eventAggregator.publish('fileLoaded', { fileName: file.name, content: content });
+                };
+                reader.onerror = () => {
+                    this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            });
+        }
+    }
+    _setupPanelToggles() {
+        const numericToggle = document.getElementById('panel-toggle');
+        if (numericToggle) {
+            numericToggle.addEventListener('click', () => {
+                this.eventAggregator.publish('userToggledNumericKeyboard');
+            });
+        }
+        const functionToggle = document.getElementById('function-panel-toggle');
+        if (functionToggle) {
+            functionToggle.addEventListener('click', () => {
+                this.eventAggregator.publish('userToggledFunctionKeyboard');
+            });
+        }
+    }
     _setupNumericKeyboard() {
         const numericKeyboard = document.getElementById('numeric-keyboard');
         if (numericKeyboard) {
@@ -162,7 +195,6 @@ export class InputHandler {
             });
         }
     }
-
     _setupTableInteraction() {
         const table = document.getElementById('results-table');
         if (table) {
@@ -174,8 +206,10 @@ export class InputHandler {
                 const column = target.dataset.column;
                 if (isHeader) {
                     if (column === 'Price') {
-                        this.eventAggregator.publish('userRequestedPriceCalculation');
-                    } else if (column !== 'sequence') {
+                        // 舊的 Price 表頭功能已由鍵盤上的 $ 按鈕取代
+                        // this.eventAggregator.publish('userRequestedPriceCalculation');
+                    } else if (column !== 'sequence' && column !== 'TYPE') {
+                        // 舊的 TYPE 表頭功能也已由鍵盤按鈕取代
                         this.eventAggregator.publish('tableHeaderClicked', { column });
                     }
                 } else {

@@ -16,6 +16,7 @@ export class UIManager {
         this.functionPanel = document.getElementById('function-panel');
         this.insertButton = document.getElementById('key-insert');
         this.deleteButton = document.getElementById('key-delete');
+        this.clearButton = document.getElementById('key-clear'); // 新增 Clear 按鈕的引用
 
         this.initialize();
     }
@@ -30,28 +31,30 @@ export class UIManager {
             this._renderQuickQuoteView(state);
         }
         
-        // --- [修改] 將呼叫移到 _renderQuickQuoteView 內部，確保在 innerHTML 更新後執行 ---
+        // --- [修改] 在每次渲染完成後，執行自動捲動 ---
+        this._scrollToActiveCell(state);
     }
     
-    _scrollToActiveCell() {
-        // --- [修改] 使用 setTimeout 延遲執行，確保 DOM 已更新 ---
+    // --- [新增] 自動捲動到可視區的核心方法 ---
+    _scrollToActiveCell(state) {
         setTimeout(() => {
-            const activeCellElement = document.querySelector('.active-input-cell');
+            const { rowIndex, column } = state.ui.activeCell;
+            // 使用精確的選擇器找到目標儲存格
+            const activeCellElement = document.querySelector(`tr[data-row-index="${rowIndex}"] td[data-column="${column}"]`);
+            
             if (activeCellElement) {
                 activeCellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
-        }, 0); // 延遲 0 毫秒，足以將其推到下一個事件循環
+        }, 0);
     }
 
     _renderQuickQuoteView(state) {
-        if (this.insertButton && this.deleteButton) {
-            const isRowSelected = state.ui.selectedRowIndex !== null;
-            const items = state.quoteData.rollerBlindItems;
-            const hasOperableItems = items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
-            
-            this.insertButton.disabled = !isRowSelected;
-            this.deleteButton.disabled = !isRowSelected || !hasOperableItems;
-        }
+        const { selectedRowIndex } = state.ui;
+        // --- [修改] 將按鈕禁用邏輯移到此處統一管理 ---
+        const isRowSelected = selectedRowIndex !== null;
+        if (this.insertButton) this.insertButton.disabled = !isRowSelected;
+        if (this.deleteButton) this.deleteButton.disabled = !isRowSelected;
+        if (this.clearButton) this.clearButton.disabled = !isRowSelected;
 
         if (this.inputDisplay) {
             this.inputDisplay.textContent = state.ui.inputValue || '';
@@ -59,37 +62,42 @@ export class UIManager {
 
         if (this.resultsTableBody) {
             const { rollerBlindItems } = state.quoteData;
-            const { activeCell, selectedRowIndex } = state.ui; 
+            const { activeCell } = state.ui; 
             if (rollerBlindItems.length === 0 || (rollerBlindItems.length === 1 && !rollerBlindItems[0].width && !rollerBlindItems[0].height)) {
                 this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
             } else {
                 this.resultsTableBody.innerHTML = rollerBlindItems.map((item, index) => {
-                    const isWHighlighted = index === activeCell.rowIndex && activeCell.column === 'width';
-                    const isHHighlighted = index === activeCell.rowIndex && activeCell.column === 'height';
+                    // --- [修改] 區分輸入焦點和選擇焦點 ---
+                    const isInputCell = index === activeCell.rowIndex && (activeCell.column === 'width' || activeCell.column === 'height');
+                    const isSelectCell = index === activeCell.rowIndex && activeCell.column === 'TYPE';
+
+                    const isWHighlighted = isInputCell && activeCell.column === 'width';
+                    const isHHighlighted = isInputCell && activeCell.column === 'height';
                     
                     const isSequenceSelected = index === selectedRowIndex;
                     const sequenceCellClass = isSequenceSelected ? 'selected-row-highlight' : '';
-                    let typeClass = '';
+
+                    // 當儲存格是 TYPE 且被方向鍵選中時，也給予高亮
+                    const typeCellClass = isSelectCell ? 'active-input-cell' : '';
+
+                    let fabricTypeClass = '';
                     if (item.fabricType === 'BO1') {
-                        typeClass = 'type-bo1';
+                        fabricTypeClass = 'type-bo1';
                     } else if (item.fabricType === 'SN') {
-                        typeClass = 'type-sn';
+                        fabricTypeClass = 'type-sn';
                     }
                     return `
                         <tr data-row-index="${index}">
                             <td data-column="sequence" class="${sequenceCellClass}">${index + 1}</td>
                             <td data-column="width" class="${isWHighlighted ? 'active-input-cell' : ''}">${item.width || ''}</td>
                             <td data-column="height" class="${isHHighlighted ? 'active-input-cell' : ''}">${item.height || ''}</td>
-                            <td data-column="TYPE" class="${typeClass}">${(item.width || item.height) ? (item.fabricType || '') : ''}</td>
+                            <td data-column="TYPE" class="${fabricTypeClass} ${typeCellClass}">${(item.width || item.height) ? (item.fabricType || '') : ''}</td>
                             <td data-column="Price" class="text-right">${item.linePrice ? '$' + item.linePrice.toFixed(2) : ''}</td>
                         </tr>
                     `;
                 }).join('');
             }
-            // --- [修改] 在 innerHTML 被賦值後，才呼叫捲動方法 ---
-            this._scrollToActiveCell();
         }
-
         if (this.totalSumValueElement) {
             const totalSum = state.quoteData.summary ? state.quoteData.summary.totalSum : null;
             if (typeof totalSum === 'number') {
@@ -100,7 +108,6 @@ export class UIManager {
         }
     }
     
-    // ... 其他方法維持不變 ...
     _toggleNumericKeyboard() {
         if (this.numericKeyboardPanel) {
             this.numericKeyboardPanel.classList.toggle('is-collapsed');
@@ -111,6 +118,7 @@ export class UIManager {
             this.functionPanel.classList.toggle('is-expanded');
         }
     }
+
     _handleEmailRequest() {
         const state = this.stateManager.getState();
         const quoteData = state.quoteData;
