@@ -55,6 +55,14 @@ export class InputHandler {
     }
 
     _setupFunctionKeys() {
+        // --- [新增] 為 Clear 按鈕綁定事件 ---
+        const clearButton = document.getElementById('key-clear');
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userRequestedClearRow');
+            });
+        }
+
         const sumButton = document.getElementById('key-sum');
         if (sumButton) {
             sumButton.addEventListener('click', () => {
@@ -98,7 +106,6 @@ export class InputHandler {
             });
         }
 
-        // --- [新增] 為 RESET 按鈕綁定事件 ---
         const resetButton = document.getElementById('key-reset');
         if (resetButton) {
             resetButton.addEventListener('click', () => {

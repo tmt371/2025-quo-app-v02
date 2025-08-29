@@ -10,9 +10,33 @@ import { initialState } from './config/initial-state.js';
 import { PersistenceService } from './services/persistence-service.js';
 import { ProductFactory } from './strategies/product-factory.js';
 
+// --- [新增] 將自動儲存的金鑰也定義在此，確保與 StateManager 一致 ---
+const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
 
 class App {
     constructor() {
+        // --- [修改] 增加啟動時檢查自動儲存的邏輯 ---
+        let startingState = JSON.parse(JSON.stringify(initialState)); // 使用深拷貝確保初始狀態純淨
+        try {
+            const autoSavedDataJSON = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+            if (autoSavedDataJSON) {
+                const message = "It looks like you have unsaved work from a previous session.\n\n- 'OK' to restore the unsaved work.\n- 'Cancel' to start a new, blank quote.";
+                if (window.confirm(message)) {
+                    const autoSavedData = JSON.parse(autoSavedDataJSON);
+                    startingState.quoteData = autoSavedData;
+                    console.log("Restored data from auto-save.");
+                } else {
+                    // 如果使用者選擇不恢復，可以選擇性地清除草稿
+                    localStorage.removeItem(AUTOSAVE_STORAGE_KEY);
+                    console.log("Auto-saved data discarded by user.");
+                }
+            }
+        } catch (error) {
+            console.error("Failed to process auto-saved data:", error);
+            localStorage.removeItem(AUTOSAVE_STORAGE_KEY); // 如果解析失敗，清除損壞的資料
+        }
+        // --- [修改結束] ---
+        
         this.eventAggregator = new EventAggregator();
         this.configManager = new ConfigManager(this.eventAggregator);
         this.inputHandler = new InputHandler(this.eventAggregator);
@@ -20,8 +44,9 @@ class App {
         const persistenceService = new PersistenceService();
         const productFactory = new ProductFactory();
 
+        // 使用我們剛剛決定好的 startingState 來初始化 StateManager
         this.stateManager = new StateManager({
-            initialState: initialState,
+            initialState: startingState,
             persistenceService: persistenceService,
             productFactory: productFactory,
             configManager: this.configManager,
@@ -40,28 +65,19 @@ class App {
         
         await this.configManager.initialize();
 
-        // 訂閱核心事件
         this.eventAggregator.subscribe('stateChanged', (state) => {
             this.uiManager.render(state);
         });
-
-        // --- [修改] 將 alert 替換為 Toast 通知系統 ---
         this.eventAggregator.subscribe('showNotification', (data) => {
             const toastContainer = document.getElementById('toast-container');
             if (!toastContainer) return;
-
             const toast = document.createElement('div');
             toast.className = 'toast-message';
             toast.textContent = data.message;
-
-            // 如果通知帶有 'error' 類型，則添加錯誤樣式
             if (data.type === 'error') {
                 toast.classList.add('error');
             }
-
             toastContainer.appendChild(toast);
-
-            // 動畫結束後（4秒），將元素從 DOM 中移除，保持頁面乾淨
             setTimeout(() => {
                 toast.remove();
             }, 4000);
@@ -69,7 +85,6 @@ class App {
 
         this.stateManager.publishInitialState(); 
         this.inputHandler.initialize(); 
-
         console.log("Application running and interactive.");
     }
 }
