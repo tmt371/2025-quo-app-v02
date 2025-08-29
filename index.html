@@ -29,7 +29,7 @@
         </div>
         <div class="keyboard-panel" id="numeric-keyboard-panel">
             <div class="panel-toggle" id="panel-toggle" title="Toggle Keyboard">
-                <svg class="toggle-arrow arrow-down" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-l7.5 7.5-7.5-7.5" /></svg>
+                <svg class="toggle-arrow arrow-down" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
                 <svg class="toggle-arrow arrow-up" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
             </div>
             <div class="input-area-container">
@@ -58,20 +58,19 @@
             <svg class="toggle-arrow arrow-left" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             <svg class="toggle-arrow arrow-right" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
         </div>
-        <div>
-            <div class="function-buttons">
-                <button id="key-insert">insert</button>
-                <button id="key-delete">delete</button>
-                <button id="key-save">Save</button>
-                <button id="key-load">Load</button>
-                <button id="key-email">Email</button>
-                <button id="key-export-csv">Export CSV</button>
-            </div>
-        </div>
-        <div>
-            <div class="function-buttons">
-                 <button id="key-reset">RESET</button>
-            </div>
+        <div class="function-grid">
+            <button id="key-insert">Insert</button>
+            <button id="key-f3" disabled>F3</button>
+            <button id="key-save">Save</button>
+            <button id="key-f1" disabled>F1</button>
+            <button id="key-f2" disabled>F2</button>
+            <button id="key-load">Load</button>
+            <button id="key-delete">Delete</button>
+            <button id="key-f4" disabled>F4</button>
+            <button id="key-export">Export</button>
+            <button id="key-f5" disabled>F5</button>
+            <button id="key-f6" disabled>F6</button>
+            <button id="key-reset">RESET</button>
         </div>
     </div>
     <input type="file" id="file-loader" style="display: none;" accept=".json,.csv">

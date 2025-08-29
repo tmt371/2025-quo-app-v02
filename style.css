@@ -95,7 +95,9 @@ html, body {
     display: flex; justify-content: center; align-items: center; font-weight: 500;
 }
 .panel-toggle {
-    position: absolute; top: 5px; left: 50%;
+    position: absolute; top: 5px;
+    /* --- [修改] 需求一：將呼叫鍵從 50% (中央) 移到 30% (偏左) --- */
+    left: 30%;
     transform: translateX(-50%);
     width: 80px; height: 20px;
     border: 1px solid #ccc; background-color: #fff; border-radius: 10px;
@@ -120,12 +122,11 @@ html, body {
     font-size: 2.2em;
     padding-bottom: 25px;
 }
-/* --- [修改] 提高選擇器的權重 --- */
 .virtual-keyboard .key-enter-style {
-    background-color: #FCFCFC; /* 2% 淺灰色 */
+    background-color: #FCFCFC;
 }
 .virtual-keyboard .key-del-style {
-    background-color: #F2F2F2; /* 5% 淺灰色 */
+    background-color: #F2F2F2;
 }
 .key-sum { background-color: #dbeafe; font-weight: bold; color: #1e40af; }
 .key-clear {
@@ -148,7 +149,9 @@ html, body {
 #function-panel {
     position: relative;
     position: fixed; top: 0; right: 0;
-    width: 180px; height: 100%;
+    /* --- [修改] 需求二：將寬度從 180px 增加到 297px --- */
+    width: 297px;
+    height: 100%;
     background-color: #e5e7eb;
     border-left: 1px solid var(--panel-border-color);
     box-shadow: -2px 0 10px rgba(0,0,0,0.1);
@@ -159,7 +162,7 @@ html, body {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start; /* 改為從頂部開始排列 */
 }
 #function-panel.is-expanded { transform: translateX(0); }
 #function-panel-toggle {
@@ -177,35 +180,47 @@ html, body {
     width: 24px; height: 24px; transition: opacity 0.3s; position: absolute;
 }
 #function-panel .arrow-left { opacity: 1; }
-#function-panel .arrow-right { opacity: 0; }
+.function-panel .arrow-right { opacity: 0; }
 #function-panel.is-expanded .arrow-left { opacity: 0; }
 #function-panel.is-expanded .arrow-right { opacity: 1; }
-.function-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+
+/* --- [修改] 需求三：為新的網格佈局準備樣式 --- */
+.function-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 50px;
+    height: 100%;
+    align-content: space-between; /* 讓內容上下分佈 */
 }
-.function-buttons div:first-child { margin-top: 50px; }
-.function-buttons button {
-    width: 100%; padding: 10px; font-size: 1.1em;
-    background-color: #fff; border: 1px solid #ccc; border-radius: 4px;
+.function-grid button {
+    width: 100%;
+    padding: 10px 5px;
+    font-size: 1em;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s, opacity 0.2s;
 }
-.function-buttons button:disabled {
+.function-grid button:disabled {
     background-color: #f3f4f6;
     opacity: 0.5;
     cursor: not-allowed;
 }
+/* 移除舊的 .function-buttons 容器樣式 */
+.function-buttons {
+   display: none;
+}
 #key-save { background-color: #dcfce7; }
 #key-load { background-color: #ffedd5; }
-#key-email { background-color: #e0e7ff; }
-#key-export-csv { background-color: #d1fae5; }
+#key-export { background-color: #d1fae5; } /* Export CSV 更名為 Export */
 #key-reset {
-    background-color: #fee2e2;
-    color: #991b1b;
+    /* --- [修改] 需求三：RESET 按鈕使用紅色底色 --- */
+    background-color: #ef4444;
+    color: white;
     font-weight: bold;
-    border-color: #fca5a5;
+    border-color: #dc2626;
 }
 #toast-container {
     position: fixed;
