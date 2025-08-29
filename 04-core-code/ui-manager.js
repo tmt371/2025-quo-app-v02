@@ -9,7 +9,6 @@ export class UIManager {
         this.eventAggregator = eventAggregator;
         this.stateManager = stateManager;
 
-        // --- [修改] 獲取 Insert 和 Delete 按鈕的元素 ---
         this.inputDisplay = document.getElementById('input-display');
         this.resultsTableBody = document.querySelector('.results-table tbody');
         this.totalSumValueElement = document.getElementById('total-sum-value');
@@ -24,21 +23,34 @@ export class UIManager {
     initialize() {
         this.eventAggregator.subscribe('userToggledNumericKeyboard', () => this._toggleNumericKeyboard());
         this.eventAggregator.subscribe('userToggledFunctionKeyboard', () => this._toggleFunctionKeyboard());
-        this.eventAggregator.subscribe('userRequestedEmailQuote', () => this._handleEmailRequest());
     }
 
     render(state) {
         if (state.ui.currentView === 'QUICK_QUOTE') {
             this._renderQuickQuoteView(state);
         }
+        
+        // --- [修改] 將呼叫移到 _renderQuickQuoteView 內部，確保在 innerHTML 更新後執行 ---
+    }
+    
+    _scrollToActiveCell() {
+        // --- [修改] 使用 setTimeout 延遲執行，確保 DOM 已更新 ---
+        setTimeout(() => {
+            const activeCellElement = document.querySelector('.active-input-cell');
+            if (activeCellElement) {
+                activeCellElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 0); // 延遲 0 毫秒，足以將其推到下一個事件循環
     }
 
     _renderQuickQuoteView(state) {
-        // --- [新增] 需求二：根據狀態更新按鈕的禁用屬性 ---
         if (this.insertButton && this.deleteButton) {
             const isRowSelected = state.ui.selectedRowIndex !== null;
+            const items = state.quoteData.rollerBlindItems;
+            const hasOperableItems = items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
+            
             this.insertButton.disabled = !isRowSelected;
-            this.deleteButton.disabled = !isRowSelected;
+            this.deleteButton.disabled = !isRowSelected || !hasOperableItems;
         }
 
         if (this.inputDisplay) {
@@ -52,7 +64,6 @@ export class UIManager {
                 this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
             } else {
                 this.resultsTableBody.innerHTML = rollerBlindItems.map((item, index) => {
-                    // --- [修改] 需求三：應用新的 active-input-cell 樣式 ---
                     const isWHighlighted = index === activeCell.rowIndex && activeCell.column === 'width';
                     const isHHighlighted = index === activeCell.rowIndex && activeCell.column === 'height';
                     
@@ -75,7 +86,10 @@ export class UIManager {
                     `;
                 }).join('');
             }
+            // --- [修改] 在 innerHTML 被賦值後，才呼叫捲動方法 ---
+            this._scrollToActiveCell();
         }
+
         if (this.totalSumValueElement) {
             const totalSum = state.quoteData.summary ? state.quoteData.summary.totalSum : null;
             if (typeof totalSum === 'number') {
