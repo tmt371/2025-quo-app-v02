@@ -4,9 +4,9 @@
  * @fileoverview Manages the application's state and core logic orchestration.
  */
 
-import { dataToCsv, csvToData } from '../utils/csv-parser.js';
-// --- [新增] 為了 RESET 功能，需要引入初始狀態 ---
-import { initialState } from '../config/initial-state.js';
+// --- [修改] 將導入路徑從 '../' 修正為 './' ---
+import { dataToCsv, csvToData } from './utils/csv-parser.js';
+import { initialState } from './config/initial-state.js';
 
 
 export class StateManager {
@@ -20,7 +20,6 @@ export class StateManager {
     }
 
     initialize() {
-        // ... 其他訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
@@ -32,8 +31,6 @@ export class StateManager {
         this.eventAggregator.subscribe('userRequestedSave', () => this._handleSaveToFile());
         this.eventAggregator.subscribe('fileLoaded', (data) => this._handleFileLoad(data));
         this.eventAggregator.subscribe('userRequestedExportCSV', () => this._handleExportCSV());
-        
-        // --- [新增] 訂閱 RESET 事件 ---
         this.eventAggregator.subscribe('userRequestedReset', () => this._handleReset());
     }
 
@@ -45,7 +42,6 @@ export class StateManager {
         this.eventAggregator.publish('stateChanged', this.state);
     }
     
-    // ... 其他方法 ...
     _triggerDownload(content, fileName, contentType) {
         const blob = new Blob([content], { type: contentType });
         const url = URL.createObjectURL(blob);
@@ -118,6 +114,68 @@ export class StateManager {
         else if (key === 'ENT') { this._commitValue(); return; }
         this._publishStateChange();
     }
+    _commitValue() {
+        const { inputValue, inputMode, activeCell, isEditing } = this.state.ui;
+        const value = inputValue === '' ? null : parseInt(inputValue, 10);
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const validationRules = productStrategy.getValidationRules();
+        const rule = validationRules[inputMode];
+        if (value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
+            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.` });
+            this.state.ui.inputValue = ''; this._publishStateChange(); return;
+        }
+        const items = this.state.quoteData.rollerBlindItems;
+        const targetItem = items[activeCell.rowIndex];
+        if (targetItem) {
+            if (targetItem[inputMode] !== value) {
+                targetItem.linePrice = null;
+            }
+            targetItem[inputMode] = value;
+        }
+        if (isEditing) { this.state.ui.isEditing = false; } 
+        else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
+            const newItem = productStrategy.getInitialItemData();
+            items.push(newItem);
+        }
+        this.state.ui.inputValue = '';
+        this._changeInputMode(inputMode);
+    }
+    _changeInputMode(mode) {
+        this.state.ui.inputMode = mode;
+        this.state.ui.isEditing = false;
+        this.state.ui.selectedRowIndex = null;
+        const items = this.state.quoteData.rollerBlindItems;
+        const nextEmptyIndex = items.findIndex(item => item[mode] === null || item[mode] === '');
+        if (nextEmptyIndex !== -1) {
+            this.state.ui.activeCell = { rowIndex: nextEmptyIndex, column: mode };
+        } else {
+            this.state.ui.activeCell = { rowIndex: items.length - 1, column: mode };
+        }
+        this._publishStateChange();
+    }
+    _handleTableCellClick({ rowIndex, column }) {
+        this.state.ui.selectedRowIndex = null;
+        const item = this.state.quoteData.rollerBlindItems[rowIndex];
+        if (!item) return;
+        if (column === 'width' || column === 'height') {
+            this.state.ui.inputMode = column;
+            this.state.ui.activeCell = { rowIndex, column };
+            this.state.ui.isEditing = true;
+            this.state.ui.inputValue = String(item[column] || '');
+        }
+        if (column === 'TYPE') {
+            if (!item.width || !item.height) return;
+            const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
+            const currentType = item.fabricType;
+            const currentIndex = TYPE_SEQUENCE.indexOf(currentType);
+            const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
+            if (currentType !== nextType) {
+                item.linePrice = null;
+            }
+            item.fabricType = nextType;
+        }
+        this._publishStateChange();
+    }
     _handleSequenceCellClick({ rowIndex }) {
         this.state.ui.selectedRowIndex = (this.state.ui.selectedRowIndex === rowIndex) ? null : rowIndex;
         this._publishStateChange();
@@ -166,6 +224,25 @@ export class StateManager {
         this.state.ui.selectedRowIndex = null;
         this._publishStateChange();
     }
+    _handleTableHeaderClick({ column }) {
+        if (column !== 'TYPE') return;
+        const items = this.state.quoteData.rollerBlindItems;
+        if (items.length === 0) return;
+        const firstPopulatedItem = items.find(item => item.width || item.height);
+        const currentType = firstPopulatedItem ? firstPopulatedItem.fabricType : null;
+        const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
+        const currentIndex = TYPE_SEQUENCE.indexOf(currentType);
+        const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
+        items.forEach(item => {
+            if (item.width || item.height) {
+                if (item.fabricType !== nextType) {
+                    item.linePrice = null;
+                }
+                item.fabricType = nextType;
+            }
+        });
+        this._publishStateChange();
+    }
     _handlePriceCalculationRequest() {
         const items = this.state.quoteData.rollerBlindItems;
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
@@ -199,122 +276,9 @@ export class StateManager {
         this.state.quoteData.summary.totalSum = total;
         this._publishStateChange();
     }
-    _changeInputMode(mode) {
-        this.state.ui.inputMode = mode;
-        this.state.ui.isEditing = false;
-        this.state.ui.selectedRowIndex = null;
-        const items = this.state.quoteData.rollerBlindItems;
-        const nextEmptyIndex = items.findIndex(item => item[mode] === null || item[mode] === '');
-        if (nextEmptyIndex !== -1) {
-            this.state.ui.activeCell = { rowIndex: nextEmptyIndex, column: mode };
-        } else {
-            this.state.ui.activeCell = { rowIndex: items.length - 1, column: mode };
-        }
-        this._publishStateChange();
-    }
-
-    /**
-     * @fileoverview [修改] 報表改良 B 案：修改寬高時，自動清空價格
-     */
-    _commitValue() {
-        const { inputValue, inputMode, activeCell, isEditing } = this.state.ui;
-        const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
-        const validationRules = productStrategy.getValidationRules();
-        const rule = validationRules[inputMode];
-
-        if (value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
-            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.` });
-            this.state.ui.inputValue = '';
-            this._publishStateChange();
-            return;
-        }
-
-        const items = this.state.quoteData.rollerBlindItems;
-        const targetItem = items[activeCell.rowIndex];
-        if (targetItem) {
-            // 如果數值有變更，就清空價格
-            if (targetItem[inputMode] !== value) {
-                targetItem.linePrice = null;
-            }
-            targetItem[inputMode] = value;
-        }
-
-        if (isEditing) {
-            this.state.ui.isEditing = false;
-        } else if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
-            const newItem = productStrategy.getInitialItemData();
-            items.push(newItem);
-        }
-        this.state.ui.inputValue = '';
-        this._changeInputMode(inputMode);
-    }
-    
-    /**
-     * @fileoverview [修改] 報表改良 B 案：修改布料款式時，自動清空價格
-     */
-    _handleTableCellClick({ rowIndex, column }) {
-        this.state.ui.selectedRowIndex = null;
-        const item = this.state.quoteData.rollerBlindItems[rowIndex];
-        if (!item) return;
-
-        if (column === 'width' || column === 'height') {
-            this.state.ui.inputMode = column;
-            this.state.ui.activeCell = { rowIndex, column };
-            this.state.ui.isEditing = true;
-            this.state.ui.inputValue = String(item[column] || '');
-        }
-        
-        if (column === 'TYPE') {
-            if (!item.width || !item.height) return;
-            const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
-            const currentType = item.fabricType;
-            const currentIndex = TYPE_SEQUENCE.indexOf(currentType);
-            const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
-            // 如果類型有變更，就清空價格
-            if (currentType !== nextType) {
-                item.linePrice = null;
-            }
-            item.fabricType = nextType;
-        }
-
-        this._publishStateChange();
-    }
-    
-    /**
-     * @fileoverview [修改] 報表改良 B 案：修復 TYPE 表頭功能
-     */
-    _handleTableHeaderClick({ column }) {
-        if (column !== 'TYPE') return;
-        const items = this.state.quoteData.rollerBlindItems;
-        if (items.length === 0) return;
-
-        const firstPopulatedItem = items.find(item => item.width || item.height);
-        const currentType = firstPopulatedItem ? firstPopulatedItem.fabricType : null;
-        
-        const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
-        const currentIndex = TYPE_SEQUENCE.indexOf(currentType);
-        const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
-
-        items.forEach(item => {
-            if (item.width || item.height) {
-                // 如果類型有變更，就清空價格
-                if (item.fabricType !== nextType) {
-                    item.linePrice = null;
-                }
-                item.fabricType = nextType;
-            }
-        });
-        
-        this._publishStateChange();
-    }
-
-    // --- [新增] RESET 功能 ---
     _handleReset() {
         const message = "This will clear all data in the current quote. Please make sure you have saved your work.\n\n- 'OK' to reset.\n- 'Cancel' to abort.";
-        // 使用瀏覽器內建的 confirm 對話框
         if (window.confirm(message)) {
-            // 使用深拷貝來重設狀態，避免物件參考問題
             this.state = JSON.parse(JSON.stringify(initialState));
             console.log("State has been reset.");
             this._publishStateChange();
