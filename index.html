@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ez Blinds Quote v0.2</title>
     <style>
-        /* ... 所有現有樣式維持不變 ... */
         :root {
             --panel-border-color: #d1d5db;
             --keyboard-bg-color: #f3f4f6;
             --app-bg-color: #ffffff;
-            --highlight-color: #a0d3e8;
+            --highlight-color: #a0d3e8; /* 水藍色 */
             --primary-color: #1a237e;
             --medium-blue-color: #1976D2;
         }
@@ -53,7 +52,12 @@
         }
         .results-table thead { background-color: #f2f2f2; }
         .results-table th[data-column="TYPE"] { cursor: pointer; }
-        .results-table td.highlighted-cell { background-color: var(--highlight-color); }
+
+        /* --- [修改] 將 highlighted-cell 改為更具體的 active-input-cell --- */
+        .results-table td.active-input-cell {
+            /* --- [修改] 需求三：區分高亮狀態，輸入焦點改為邊框 --- */
+            box-shadow: inset 0 0 0 2px var(--primary-color); /* 使用 inset box-shadow 模擬邊框，不影響佈局 */
+        }
         .results-table td.selected-row-highlight {
             background-color: var(--highlight-color);
             font-weight: bold;
@@ -123,7 +127,6 @@
             transition: transform 0.3s ease-in-out;
             padding: 20px;
             box-sizing: border-box;
-            /* --- [新增] 使用 Flexbox 來讓 RESET 按鈕置底 --- */
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -156,17 +159,54 @@
             width: 100%; padding: 10px; font-size: 1.1em;
             background-color: #fff; border: 1px solid #ccc; border-radius: 4px;
             cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
+        }
+        /* --- [新增] 需求二：按鈕的禁用樣式 --- */
+        .function-buttons button:disabled {
+            background-color: #f3f4f6;
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         #key-save { background-color: #dcfce7; }
         #key-load { background-color: #ffedd5; }
         #key-email { background-color: #e0e7ff; }
         #key-export-csv { background-color: #d1fae5; }
-        /* --- [新增] RESET 按鈕的樣式 --- */
         #key-reset {
             background-color: #fee2e2;
             color: #991b1b;
             font-weight: bold;
             border-color: #fca5a5;
+        }
+
+        /* --- [新增] 需求一：Toast 通知的完整樣式 --- */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        .toast-message {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideInAndFadeOut 4s forwards;
+        }
+        .toast-message.error {
+            background-color: #c0392b;
+        }
+        @keyframes slideInAndFadeOut {
+            0% { opacity: 0; transform: translateX(100%); }
+            15% { opacity: 1; transform: translateX(0); }
+            85% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(100%); }
         }
     </style>
 </head>
@@ -229,10 +269,13 @@
             </div>
         </div>
         <div>
-            <button id="key-reset" class="function-buttons">RESET</button>
+            <button id="key-reset">RESET</button>
         </div>
     </div>
     <input type="file" id="file-loader" style="display: none;" accept=".json,.csv">
+    
+    <div id="toast-container"></div>
+
     <script type="module" src="./04-core-code/main.js"></script>
 </body>
 </html>

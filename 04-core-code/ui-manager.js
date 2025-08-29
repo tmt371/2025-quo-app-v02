@@ -9,11 +9,14 @@ export class UIManager {
         this.eventAggregator = eventAggregator;
         this.stateManager = stateManager;
 
+        // --- [修改] 獲取 Insert 和 Delete 按鈕的元素 ---
         this.inputDisplay = document.getElementById('input-display');
         this.resultsTableBody = document.querySelector('.results-table tbody');
         this.totalSumValueElement = document.getElementById('total-sum-value');
         this.numericKeyboardPanel = document.getElementById('numeric-keyboard-panel');
         this.functionPanel = document.getElementById('function-panel');
+        this.insertButton = document.getElementById('key-insert');
+        this.deleteButton = document.getElementById('key-delete');
 
         this.initialize();
     }
@@ -25,15 +28,19 @@ export class UIManager {
     }
 
     render(state) {
-        // --- [修改] 移除偵錯日誌 ---
-        // console.log("%cUIManager RECEIVED state for rendering:", "color: green; font-weight: bold;", state);
-
         if (state.ui.currentView === 'QUICK_QUOTE') {
             this._renderQuickQuoteView(state);
         }
     }
 
     _renderQuickQuoteView(state) {
+        // --- [新增] 需求二：根據狀態更新按鈕的禁用屬性 ---
+        if (this.insertButton && this.deleteButton) {
+            const isRowSelected = state.ui.selectedRowIndex !== null;
+            this.insertButton.disabled = !isRowSelected;
+            this.deleteButton.disabled = !isRowSelected;
+        }
+
         if (this.inputDisplay) {
             this.inputDisplay.textContent = state.ui.inputValue || '';
         }
@@ -45,8 +52,8 @@ export class UIManager {
                 this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="color: #888;">Please enter dimensions to begin...</td></tr>`;
             } else {
                 this.resultsTableBody.innerHTML = rollerBlindItems.map((item, index) => {
+                    // --- [修改] 需求三：應用新的 active-input-cell 樣式 ---
                     const isWHighlighted = index === activeCell.rowIndex && activeCell.column === 'width';
-                    // --- [修改] 修正致命的拼寫錯誤 active-cell -> activeCell ---
                     const isHHighlighted = index === activeCell.rowIndex && activeCell.column === 'height';
                     
                     const isSequenceSelected = index === selectedRowIndex;
@@ -60,8 +67,8 @@ export class UIManager {
                     return `
                         <tr data-row-index="${index}">
                             <td data-column="sequence" class="${sequenceCellClass}">${index + 1}</td>
-                            <td data-column="width" class="${isWHighlighted ? 'highlighted-cell' : ''}">${item.width || ''}</td>
-                            <td data-column="height" class="${isHHighlighted ? 'highlighted-cell' : ''}">${item.height || ''}</td>
+                            <td data-column="width" class="${isWHighlighted ? 'active-input-cell' : ''}">${item.width || ''}</td>
+                            <td data-column="height" class="${isHHighlighted ? 'active-input-cell' : ''}">${item.height || ''}</td>
                             <td data-column="TYPE" class="${typeClass}">${(item.width || item.height) ? (item.fabricType || '') : ''}</td>
                             <td data-column="Price" class="text-right">${item.linePrice ? '$' + item.linePrice.toFixed(2) : ''}</td>
                         </tr>
@@ -78,7 +85,8 @@ export class UIManager {
             }
         }
     }
-
+    
+    // ... 其他方法維持不變 ...
     _toggleNumericKeyboard() {
         if (this.numericKeyboardPanel) {
             this.numericKeyboardPanel.classList.toggle('is-collapsed');
