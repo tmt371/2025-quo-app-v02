@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ez Blinds Quote v0.2</title>
     <style>
+        /* ... 所有現有樣式維持不變 ... */
         :root {
             --panel-border-color: #d1d5db;
             --keyboard-bg-color: #f3f4f6;
@@ -122,6 +123,10 @@
             transition: transform 0.3s ease-in-out;
             padding: 20px;
             box-sizing: border-box;
+            /* --- [新增] 使用 Flexbox 來讓 RESET 按鈕置底 --- */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         #function-panel.is-expanded { transform: translateX(0); }
         #function-panel-toggle {
@@ -143,7 +148,8 @@
         #function-panel.is-expanded .arrow-left { opacity: 0; }
         #function-panel.is-expanded .arrow-right { opacity: 1; }
         .function-buttons {
-            display: flex; flex-direction: column;
+            display: flex;
+            flex-direction: column;
             gap: 15px; margin-top: 50px;
         }
         .function-buttons button {
@@ -154,8 +160,14 @@
         #key-save { background-color: #dcfce7; }
         #key-load { background-color: #ffedd5; }
         #key-email { background-color: #e0e7ff; }
-        /* --- [新增] Export CSV 按鈕的樣式 --- */
         #key-export-csv { background-color: #d1fae5; }
+        /* --- [新增] RESET 按鈕的樣式 --- */
+        #key-reset {
+            background-color: #fee2e2;
+            color: #991b1b;
+            font-weight: bold;
+            border-color: #fca5a5;
+        }
     </style>
 </head>
 <body>
@@ -206,18 +218,21 @@
             <svg class="toggle-arrow arrow-left" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
             <svg class="toggle-arrow arrow-right" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
         </div>
-        <div class="function-buttons">
-            <button id="key-insert">insert</button>
-            <button id="key-delete">delete</button>
-            <button id="key-save">Save</button>
-            <button id="key-load">Load</button>
-            <button id="key-email">Email</button>
-            <button id="key-export-csv">Export CSV</button> 
+        <div>
+            <div class="function-buttons">
+                <button id="key-insert">insert</button>
+                <button id="key-delete">delete</button>
+                <button id="key-save">Save</button>
+                <button id="key-load">Load</button>
+                <button id="key-email">Email</button>
+                <button id="key-export-csv">Export CSV</button> 
+            </div>
+        </div>
+        <div>
+            <button id="key-reset" class="function-buttons">RESET</button>
         </div>
     </div>
-
     <input type="file" id="file-loader" style="display: none;" accept=".json,.csv">
-    
     <script type="module" src="./04-core-code/main.js"></script>
 </body>
 </html>

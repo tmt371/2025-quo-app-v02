@@ -10,13 +10,9 @@ export class InputHandler {
         this._setupTableInteraction();
         this._setupFunctionKeys();
         this._setupPanelToggles();
-        this._setupFileLoader(); // --- [新增] 初始化檔案載入器的監聽 ---
+        this._setupFileLoader();
     }
     
-    // --- [新增開始] ---
-    /**
-     * 設定隱藏的檔案輸入框的事件監聽
-     */
     _setupFileLoader() {
         const fileLoader = document.getElementById('file-loader');
         if (fileLoader) {
@@ -25,11 +21,9 @@ export class InputHandler {
                 if (!file) {
                     return;
                 }
-
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const content = e.target.result;
-                    // 發布帶有檔案名稱和內容的事件
                     this.eventAggregator.publish('fileLoaded', {
                         fileName: file.name,
                         content: content
@@ -39,14 +33,11 @@ export class InputHandler {
                     this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
                 };
                 reader.readAsText(file);
-
-                // 清空 input 的 value，確保下次選擇同一個檔案也能觸發 change 事件
                 event.target.value = '';
             });
         }
     }
-    // --- [新增結束] ---
-
+    
     _setupPanelToggles() {
         const numericToggle = document.getElementById('panel-toggle');
         if (numericToggle) {
@@ -92,20 +83,26 @@ export class InputHandler {
             });
         }
 
-        // --- [修改] Load 按鈕現在觸發檔案選擇器 ---
         const loadButton = document.getElementById('key-load');
         const fileLoader = document.getElementById('file-loader');
         if (loadButton && fileLoader) {
             loadButton.addEventListener('click', () => {
-                fileLoader.click(); // 模擬點擊隱藏的 input[type=file]
+                fileLoader.click();
             });
         }
 
-        // --- [新增] Export CSV 按鈕的事件監聽 ---
         const exportCsvButton = document.getElementById('key-export-csv');
         if (exportCsvButton) {
             exportCsvButton.addEventListener('click', () => {
                 this.eventAggregator.publish('userRequestedExportCSV');
+            });
+        }
+
+        // --- [新增] 為 RESET 按鈕綁定事件 ---
+        const resetButton = document.getElementById('key-reset');
+        if (resetButton) {
+            resetButton.addEventListener('click', () => {
+                this.eventAggregator.publish('userRequestedReset');
             });
         }
     }
