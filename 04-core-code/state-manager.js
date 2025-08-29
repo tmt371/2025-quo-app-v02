@@ -4,7 +4,6 @@
  * @fileoverview Manages the application's state and core logic orchestration.
  */
 
-// --- [修改] 將導入路徑從 '../' 修正為 './' ---
 import { dataToCsv, csvToData } from './utils/csv-parser.js';
 import { initialState } from './config/initial-state.js';
 
@@ -20,6 +19,7 @@ export class StateManager {
     }
 
     initialize() {
+        // ... 其他訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
@@ -42,6 +42,7 @@ export class StateManager {
         this.eventAggregator.publish('stateChanged', this.state);
     }
     
+    // ... 其他方法 ...
     _triggerDownload(content, fileName, contentType) {
         const blob = new Blob([content], { type: contentType });
         const url = URL.createObjectURL(blob);
@@ -276,12 +277,20 @@ export class StateManager {
         this.state.quoteData.summary.totalSum = total;
         this._publishStateChange();
     }
+
+    /**
+     * @fileoverview [修改] 修正 RESET 功能
+     */
     _handleReset() {
         const message = "This will clear all data in the current quote. Please make sure you have saved your work.\n\n- 'OK' to reset.\n- 'Cancel' to abort.";
         if (window.confirm(message)) {
+            // 使用深拷貝來重設狀態，避免物件參考問題
             this.state = JSON.parse(JSON.stringify(initialState));
             console.log("State has been reset.");
+            
+            // --- [新增] 補上遺漏的廣播通知 ---
             this._publishStateChange();
+
             this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' });
         } else {
             console.log("Reset aborted by user.");
