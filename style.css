@@ -63,10 +63,9 @@ html, body {
     box-sizing: border-box;
 }
 
-/* --- [修改] 將 input-area-container 改為 Grid 佈局，以便精確對齊 --- */
 .input-area-container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 模擬下方鍵盤的 4 欄佈局 */
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
     margin-bottom: 15px;
     align-items: stretch;
@@ -75,20 +74,18 @@ html, body {
     border: 1px solid #ccc; background-color: #fff;
     padding: 10px; font-size: 1.8em; text-align: right;
     border-radius: 4px; display: flex; align-items: center; justify-content: flex-end;
-    /* --- [修改] 讓顯示框佔據第 3, 4 欄，並向左偏移 --- */
     grid-column: 3 / 5;
-    grid-row: 2 / 3;
+    /* --- [修改] 讓顯示框也佔據兩行的高度 --- */
+    grid-row: 1 / 3;
     margin-right: 20px;
 }
-/* --- [移除] .function-keys 因為佈局已完全改變 --- */
 .function-keys { display: none; }
 
-/* --- [新增] 用於放置 BO, BO1... 等 6 個按鈕的新網格 --- */
 .batch-keys-grid {
-    grid-column: 1 / 3; /* 佔據父層網格的前 2 欄 */
-    grid-row: 1 / 3;    /* 佔據父層網格的前 2 行 */
+    grid-column: 1 / 3;
+    grid-row: 1 / 3;
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* 內部再切分為 3 欄 */
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
 }
 .batch-keys-grid button {
