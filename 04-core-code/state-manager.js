@@ -5,12 +5,14 @@
  */
 
 import { dataToCsv, csvToData } from './utils/csv-parser.js';
-import { initialState } from './config/initial-state.js';
+// --- [修改] 不再從外部匯入 initialState 來進行重設 ---
+// import { initialState } from './config/initial-state.js';
 
 
 export class StateManager {
     constructor({ initialState, productFactory, configManager, eventAggregator }) {
-        this.state = initialState;
+        // 使用深拷貝確保初始狀態的獨立性
+        this.state = JSON.parse(JSON.stringify(initialState)); 
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
@@ -19,7 +21,7 @@ export class StateManager {
     }
 
     initialize() {
-        // ... 其他訂閱維持不變 ...
+        // ... 所有訂閱維持不變 ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('tableHeaderClicked', (data) => this._handleTableHeaderClick(data));
@@ -32,6 +34,37 @@ export class StateManager {
         this.eventAggregator.subscribe('fileLoaded', (data) => this._handleFileLoad(data));
         this.eventAggregator.subscribe('userRequestedExportCSV', () => this._handleExportCSV());
         this.eventAggregator.subscribe('userRequestedReset', () => this._handleReset());
+    }
+
+    // --- [新增] 內部方法，用於生成一份全新的初始狀態 ---
+    _getInitialState() {
+        return {
+            ui: {
+                currentView: 'QUICK_QUOTE',
+                inputValue: '',
+                inputMode: 'width',
+                isEditing: false,
+                activeCell: { rowIndex: 0, column: 'width' },
+                selectedRowIndex: null,
+            },
+            quoteData: {
+                rollerBlindItems: [
+                    { 
+                        itemId: `item-${Date.now()}`, 
+                        width: null, 
+                        height: null, 
+                        fabricType: null, 
+                        linePrice: null 
+                    }
+                ],
+                quoteId: null,
+                issueDate: null,
+                dueDate: null,
+                status: "Configuring",
+                customer: { name: "", address: "", phone: "", email: "" },
+                summary: { totalSum: null }
+            }
+        };
     }
 
     publishInitialState() {
@@ -86,7 +119,10 @@ export class StateManager {
                 return;
             }
             if (loadedData && loadedData.rollerBlindItems) {
+                // 載入資料時，UI 狀態也應該被重設
+                const freshUIState = this._getInitialState().ui;
                 this.state.quoteData = loadedData;
+                this.state.ui = freshUIState;
                 this._publishStateChange();
                 this.eventAggregator.publish('showNotification', { message: `Successfully loaded data from ${fileName}` });
             } else {
@@ -284,13 +320,11 @@ export class StateManager {
     _handleReset() {
         const message = "This will clear all data in the current quote. Please make sure you have saved your work.\n\n- 'OK' to reset.\n- 'Cancel' to abort.";
         if (window.confirm(message)) {
-            // 使用深拷貝來重設狀態，避免物件參考問題
-            this.state = JSON.parse(JSON.stringify(initialState));
+            // --- [修改] 不再參考外部，而是呼叫內部方法來生成一個全新的物件 ---
+            this.state = this._getInitialState();
             console.log("State has been reset.");
             
-            // --- [新增] 補上遺漏的廣播通知 ---
-            this._publishStateChange();
-
+            this._publishStateChange(); // 發布通知以更新 UI
             this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' });
         } else {
             console.log("Reset aborted by user.");
