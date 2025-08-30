@@ -28,10 +28,25 @@ html, body {
     flex-grow: 1;
     overflow-y: auto;
     position: relative;
-    /* [修改] 移除 padding-top 來解決縫隙問題 */
-    padding: 0 20px 20px 20px; 
+    padding: 0 20px 20px 20px;
     box-sizing: border-box;
+    /* [新增] 建立新的堆疊上下文以確保偽元素在其內部 */
+    z-index: 1; 
 }
+
+/* [新增] 偽元素遮罩，以解決 sticky 表頭上方的縫隙問題 */
+.results-panel::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px; /* 根據 results-table thead 的 border-top 調整 */
+    background-color: var(--app-bg-color); /* 與表頭背景色一致 */
+    z-index: 11; /* 略高於 thead 的 z-index */
+    pointer-events: none; /* 允許點擊穿透 */
+}
+
 
 .results-table {
     width: 100%;
@@ -44,7 +59,6 @@ html, body {
     top: 0;
     background-color: var(--app-bg-color);
     z-index: 10;
-    /* [新增] 增加同色邊框來填補縫隙，並強化底部邊框 */
     border-top: 5px solid var(--app-bg-color);
     border-bottom: 2px solid var(--panel-border-color);
 }
@@ -204,7 +218,7 @@ html, body {
 
 #function-panel {
     position: fixed; top: 0; right: 0;
-    width: 290px; /* [修改] 縮小寬度以適應行動裝置 */
+    width: 290px;
     height: 100%;
     background-color: #e5e7eb;
     border-left: 1px solid var(--panel-border-color);

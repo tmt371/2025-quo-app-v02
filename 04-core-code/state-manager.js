@@ -12,7 +12,7 @@ export class StateManager {
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
         this.autoSaveTimerId = null;
-        console.log("StateManager (Bugfix rev.3) Initialized.");
+        console.log("StateManager (Bugfix rev.4) Initialized.");
         this.initialize();
     }
 
@@ -149,8 +149,55 @@ export class StateManager {
     }
 
     _handleSequenceCellClick({ rowIndex }) { this.state.ui.selectedRowIndex = (this.state.ui.selectedRowIndex === rowIndex) ? null : rowIndex; this._publishStateChange(); }
-    _handleInsertRow() { const { selectedRowIndex } = this.state.ui; if (selectedRowIndex === null) { this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' }); return; } const items = this.state.quoteData.rollerBlindItems; const productStrategy = this.productFactory.getProductStrategy('rollerBlind'); const newItem = productStrategy.getInitialItemData(); const newRowIndex = selectedRowIndex + 1; items.splice(newRowIndex, 0, newItem); this.state.ui.activeCell = { rowIndex: newRowIndex, column: 'width' }; this.state.ui.inputMode = 'width'; this.state.ui.selectedRowIndex = null; this._publishStateChange(); }
-    _handleDeleteRow() { const { selectedRowIndex } = this.state.ui; if (selectedRowIndex === null) { this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' }); return; } const items = this.state.quoteData.rollerBlindItems; if (items.length > 1) { items.splice(selectedRowIndex, 1); } else { const productStrategy = this.productFactory.getProductStrategy('rollerBlind'); items[0] = productStrategy.getInitialItemData(); } this.state.ui.selectedRowIndex = null; this.state.ui.isSumOutdated = true; this._publishStateChange(); }
+    
+    _handleInsertRow() {
+        const { selectedRowIndex } = this.state.ui;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
+            return;
+        }
+        const items = this.state.quoteData.rollerBlindItems;
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const newItem = productStrategy.getInitialItemData();
+        const newRowIndex = selectedRowIndex + 1;
+        items.splice(newRowIndex, 0, newItem);
+
+        // [確認] 插入後，自動瞄準新橫行的寬度格
+        this.state.ui.activeCell = { rowIndex: newRowIndex, column: 'width' };
+        this.state.ui.inputMode = 'width';
+        this.state.ui.selectedRowIndex = null;
+        
+        this._publishStateChange();
+
+        // [新增] 發布事件，通知 UI 收回功能鍵盤
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+    }
+
+    _handleDeleteRow() {
+        const { selectedRowIndex } = this.state.ui;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' });
+            return;
+        }
+        const items = this.state.quoteData.rollerBlindItems;
+        if (items.length > 1) {
+            items.splice(selectedRowIndex, 1);
+        } else {
+            const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+            items[0] = productStrategy.getInitialItemData();
+        }
+        this.state.ui.selectedRowIndex = null;
+        this.state.ui.isSumOutdated = true;
+
+        // [新增] 刪除後，自動瞄準最後橫行的寬度格
+        this.state.ui.activeCell = { rowIndex: items.length - 1, column: 'width' };
+        
+        this._publishStateChange();
+
+        // [新增] 發布事件，通知 UI 收回功能鍵盤
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+    }
+
     _handleReset() { const message = "This will clear all data. Are you sure?"; if (window.confirm(message)) { this.state = this._getInitialState(); this._publishStateChange(); this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' }); } }
     
     _handleClearRow() {
@@ -185,13 +232,11 @@ export class StateManager {
         this.state.ui.inputMode = (column === 'width' || column === 'height') ? column : this.state.ui.inputMode;
         this.state.ui.selectedRowIndex = null;
         
-        // --- [修改] ---
-        // 當移動到新的儲存格時，將該格的現有值載入到 inputValue 中
         const currentItem = items[rowIndex];
         if (currentItem && (column === 'width' || column === 'height')) {
             this.state.ui.inputValue = String(currentItem[column] || '');
         } else {
-            this.state.ui.inputValue = ''; // 如果是 TYPE 欄或其他情況，則清空
+            this.state.ui.inputValue = '';
         }
         
         this._publishStateChange();

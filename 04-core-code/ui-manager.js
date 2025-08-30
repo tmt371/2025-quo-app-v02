@@ -6,18 +6,16 @@ export class UIManager {
         this.eventAggregator = eventAggregator;
         this.stateManager = stateManager;
 
-        // --- [修改] 更新 DOM 元素引用 ---
-        this.inputDisplayCell = document.getElementById('input-display-cell'); // 新的表頭輸入框
+        this.inputDisplayCell = document.getElementById('input-display-cell');
         this.resultsTableBody = document.querySelector('.results-table tbody');
-        this.totalSumValueElement = document.getElementById('total-sum-value'); // 鍵盤頂部的總計區
+        this.totalSumValueElement = document.getElementById('total-sum-value');
         this.numericKeyboardPanel = document.getElementById('numeric-keyboard-panel');
         this.functionPanel = document.getElementById('function-panel');
         this.insertButton = document.getElementById('key-insert');
         this.deleteButton = document.getElementById('key-delete');
         
-        // --- [新增] C (Clear) 按鈕現在整合在主鍵盤，但禁用邏輯仍需參考 selectedRowIndex
         const clearButtonOnKeyboard = document.getElementById('key-clear');
-        const clearButtonOnSidePanel = document.querySelector('.function-grid #key-clear'); // 假設未來側邊欄也可能有
+        const clearButtonOnSidePanel = document.querySelector('.function-grid #key-clear');
         this.clearButton = clearButtonOnKeyboard || clearButtonOnSidePanel;
 
         this.initialize();
@@ -26,6 +24,9 @@ export class UIManager {
     initialize() {
         this.eventAggregator.subscribe('userToggledNumericKeyboard', () => this._toggleNumericKeyboard());
         this.eventAggregator.subscribe('userToggledFunctionKeyboard', () => this._toggleFunctionKeyboard());
+        
+        // [新增] 訂閱來自 StateManager 的操作成功事件，以自動收回面板
+        this.eventAggregator.subscribe('operationSuccessfulAutoHidePanel', () => this._retractFunctionKeyboard());
     }
 
     render(state) {
@@ -45,24 +46,19 @@ export class UIManager {
         }, 0);
     }
     
-    // --- [重構] 核心渲染方法以適應新 UI ---
     _renderQuickQuoteView(state) {
         const { selectedRowIndex, activeCell, inputValue, isSumOutdated } = state.ui;
         const { rollerBlindItems, summary } = state.quoteData;
 
-        // 1. 更新按鈕禁用狀態
         const isRowSelected = selectedRowIndex !== null;
         if (this.insertButton) this.insertButton.disabled = !isRowSelected;
         if (this.deleteButton) this.deleteButton.disabled = !isRowSelected;
-        // C (Clear) 按鈕現在在主鍵盤上，但其邏輯與 Insert/Delete 類似
         if (this.clearButton) this.clearButton.disabled = !isRowSelected;
 
-        // 2. 更新表頭的輸入顯示框
         if (this.inputDisplayCell) {
             this.inputDisplayCell.value = inputValue || '';
         }
 
-        // 3. 渲染報價表格
         if (this.resultsTableBody) {
             if (rollerBlindItems.length === 0 || (rollerBlindItems.length === 1 && !rollerBlindItems[0].width && !rollerBlindItems[0].height)) {
                 this.resultsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: left; color: #888;">Enter dimensions to begin...</td></tr>`;
@@ -93,7 +89,6 @@ export class UIManager {
             }
         }
 
-        // 4. 更新鍵盤頂部的總計區
         if (this.totalSumValueElement) {
             const totalSum = summary ? summary.totalSum : null;
             if (typeof totalSum === 'number') {
@@ -101,7 +96,6 @@ export class UIManager {
             } else {
                 this.totalSumValueElement.textContent = '';
             }
-            // 根據 isSumOutdated 狀態切換 CSS class
             this.totalSumValueElement.classList.toggle('is-outdated', isSumOutdated);
             this.totalSumValueElement.classList.toggle('is-current', !isSumOutdated);
         }
@@ -116,6 +110,13 @@ export class UIManager {
     _toggleFunctionKeyboard() {
         if (this.functionPanel) {
             this.functionPanel.classList.toggle('is-expanded');
+        }
+    }
+    
+    // [新增] 只負責收回功能鍵盤的方法
+    _retractFunctionKeyboard() {
+        if (this.functionPanel) {
+            this.functionPanel.classList.remove('is-expanded');
         }
     }
 }
