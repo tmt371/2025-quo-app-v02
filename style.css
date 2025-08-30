@@ -17,7 +17,7 @@ html, body {
 
 .app-container {
     display: flex; flex-direction: column;
-    height: 100vh; /* 使用 vh 確保佔滿整個可視高度 */
+    height: 100%; /* [修改] 從 100vh 改為 100%，以改善行動裝置相容性 */
     width: 100%;
     max-width: 1000px; margin: 0 auto;
     background-color: var(--app-bg-color);
