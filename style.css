@@ -30,23 +30,7 @@ html, body {
     position: relative;
     padding: 0 20px 20px 20px;
     box-sizing: border-box;
-    /* [新增] 建立新的堆疊上下文以確保偽元素在其內部 */
-    z-index: 1; 
 }
-
-/* [新增] 偽元素遮罩，以解決 sticky 表頭上方的縫隙問題 */
-.results-panel::before {
-    content: '';
-    position: sticky;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 5px; /* 根據 results-table thead 的 border-top 調整 */
-    background-color: var(--app-bg-color); /* 與表頭背景色一致 */
-    z-index: 11; /* 略高於 thead 的 z-index */
-    pointer-events: none; /* 允許點擊穿透 */
-}
-
 
 .results-table {
     width: 100%;
@@ -59,8 +43,9 @@ html, body {
     top: 0;
     background-color: var(--app-bg-color);
     z-index: 10;
-    border-top: 5px solid var(--app-bg-color);
-    border-bottom: 2px solid var(--panel-border-color);
+    /* [修改] 移除偽元素方案，採用加粗上框線的方案來填補縫隙 */
+    border: 1px solid #ddd;
+    border-width: 6px 1px 2px 1px; /* 上6px, 左右1px, 下2px */
 }
 
 .results-table th, .results-table td {
@@ -78,6 +63,7 @@ html, body {
 
 .results-table th.input-display-header {
     padding: 0;
+    border: none; /* 移除外層th的邊框，讓input自己控制 */
 }
 
 .input-display-cell {
@@ -87,7 +73,7 @@ html, body {
     text-align: right;
     height: 100%;
     width: 100%;
-    border: none;
+    border: 1px solid #ddd; /* 為 input 加上自己的邊框 */
     box-sizing: border-box;
     padding: 8px;
 }
@@ -121,7 +107,8 @@ html, body {
 .virtual-keyboard {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    grid-template-rows: repeat(4, 1fr);
+    /* [修改] 調整網格行高，將最後一行的比例設為 0.9 */
+    grid-template-rows: 1fr 1fr 1fr 0.9fr;
     gap: 8px;
 }
 
@@ -194,12 +181,13 @@ html, body {
     text-align: right;
 }
 
+/* [修改] 調整 SUM 總和顏色邏輯 */
 .top-summary-container .value.is-outdated {
-    color: #ec4899;
+    color: #999999; /* 有問題時顯示 70% 灰色 */
 }
 
 .top-summary-container .value.is-current {
-    color: #000;
+    color: #ec4899; /* 沒問題時顯示桃紅色 */
 }
 
 .panel-toggle .toggle-arrow {

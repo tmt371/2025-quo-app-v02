@@ -7,12 +7,12 @@ const AUTOSAVE_INTERVAL_MS = 60000;
 
 export class StateManager {
     constructor({ initialState, productFactory, configManager, eventAggregator }) {
-        this.state = JSON.parse(JSON.stringify(initialState)); 
+        this.state = JSON.parse(JSON.stringify(initialState));
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
         this.autoSaveTimerId = null;
-        console.log("StateManager (Bugfix rev.4) Initialized.");
+        console.log("StateManager (Bugfix rev.5) Initialized.");
         this.initialize();
     }
 
@@ -32,7 +32,7 @@ export class StateManager {
         this.eventAggregator.subscribe('userRequestedCalculateAndSum', () => this._handleCalculateAndSum());
         this._startAutoSave();
     }
-    
+
     _getInitialState() {
         return {
             ui: {
@@ -62,7 +62,7 @@ export class StateManager {
     _handleSaveToFile() { try { const jsonString = JSON.stringify(this.state.quoteData, null, 2); const fileName = this._generateFileName('json'); this._triggerDownload(jsonString, fileName, 'application/json'); this.eventAggregator.publish('showNotification', { message: 'Quote file is being downloaded...' }); } catch (error) { console.error("Failed to save JSON file:", error); this.eventAggregator.publish('showNotification', { message: 'Error creating quote file.', type: 'error' }); } }
     _handleFileLoad({ fileName, content }) { let loadedData = null; try { if (fileName.toLowerCase().endsWith('.json')) { loadedData = JSON.parse(content); } else if (fileName.toLowerCase().endsWith('.csv')) { loadedData = csvToData(content); } else { this.eventAggregator.publish('showNotification', { message: `Unsupported file type: ${fileName}`, type: 'error' }); return; } if (loadedData && loadedData.rollerBlindItems) { const freshUIState = this._getInitialState().ui; this.state.quoteData = loadedData; this.state.ui = freshUIState; this.state.ui.isSumOutdated = true; this._publishStateChange(); this.eventAggregator.publish('showNotification', { message: `Successfully loaded data from ${fileName}` }); } else { throw new Error("Parsed data is not in a valid format."); } } catch (error) { console.error("Failed to load file:", error); this.eventAggregator.publish('showNotification', { message: `Error loading file: ${error.message}`, type: 'error' }); } }
     _handleExportCSV() { try { const csvString = dataToCsv(this.state.quoteData); const fileName = this._generateFileName('csv'); this._triggerDownload(csvString, fileName, 'text/csv;charset=utf-8;'); this.eventAggregator.publish('showNotification', { message: 'CSV file is being downloaded...' }); } catch (error) { console.error("Failed to export CSV file:", error); this.eventAggregator.publish('showNotification', { message: 'Error creating CSV file.', type: 'error' }); } }
-    
+
     _focusFirstEmptyCell(column) {
         const items = this.state.quoteData.rollerBlindItems;
         const firstEmptyIndex = items.findIndex(item => !item[column]);
@@ -113,7 +113,7 @@ export class StateManager {
                 this.state.ui.isSumOutdated = true;
             }
         }
-        
+
         if (activeCell.rowIndex === items.length - 1 && (targetItem.width || targetItem.height)) {
             const newItem = productStrategy.getInitialItemData();
             items.push(newItem);
@@ -122,7 +122,7 @@ export class StateManager {
         this.state.ui.inputValue = '';
         this._handleMoveActiveCell({ direction: 'down' });
     }
-    
+
     _handleTableCellClick({ rowIndex, column }) {
         this.state.ui.selectedRowIndex = null;
         const item = this.state.quoteData.rollerBlindItems[rowIndex];
@@ -149,7 +149,7 @@ export class StateManager {
     }
 
     _handleSequenceCellClick({ rowIndex }) { this.state.ui.selectedRowIndex = (this.state.ui.selectedRowIndex === rowIndex) ? null : rowIndex; this._publishStateChange(); }
-    
+
     _handleInsertRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
@@ -162,14 +162,12 @@ export class StateManager {
         const newRowIndex = selectedRowIndex + 1;
         items.splice(newRowIndex, 0, newItem);
 
-        // [確認] 插入後，自動瞄準新橫行的寬度格
         this.state.ui.activeCell = { rowIndex: newRowIndex, column: 'width' };
         this.state.ui.inputMode = 'width';
         this.state.ui.selectedRowIndex = null;
-        
+
         this._publishStateChange();
 
-        // [新增] 發布事件，通知 UI 收回功能鍵盤
         this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
     }
 
@@ -189,17 +187,15 @@ export class StateManager {
         this.state.ui.selectedRowIndex = null;
         this.state.ui.isSumOutdated = true;
 
-        // [新增] 刪除後，自動瞄準最後橫行的寬度格
         this.state.ui.activeCell = { rowIndex: items.length - 1, column: 'width' };
-        
+
         this._publishStateChange();
 
-        // [新增] 發布事件，通知 UI 收回功能鍵盤
         this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
     }
 
     _handleReset() { const message = "This will clear all data. Are you sure?"; if (window.confirm(message)) { this.state = this._getInitialState(); this._publishStateChange(); this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' }); } }
-    
+
     _handleClearRow() {
         const { selectedRowIndex } = this.state.ui;
         if (selectedRowIndex === null) {
@@ -209,11 +205,15 @@ export class StateManager {
         const itemToClear = this.state.quoteData.rollerBlindItems[selectedRowIndex];
         if (itemToClear) {
             itemToClear.width = null; itemToClear.height = null; itemToClear.fabricType = null; itemToClear.linePrice = null;
-            this.state.ui.selectedRowIndex = null; this.state.ui.isSumOutdated = true;
+            
+            // [新增] 清空後，自動瞄準該橫行的寬度格
+            this.state.ui.activeCell = { rowIndex: selectedRowIndex, column: 'width' };
+            this.state.ui.selectedRowIndex = null;
+            this.state.ui.isSumOutdated = true;
             this._publishStateChange();
         }
     }
-    
+
     _handleMoveActiveCell({ direction }) {
         let { rowIndex, column } = this.state.ui.activeCell;
         const items = this.state.quoteData.rollerBlindItems;
@@ -226,19 +226,19 @@ export class StateManager {
             case 'left': columnIndex = Math.max(0, columnIndex - 1); break;
             case 'right': columnIndex = Math.min(navigableColumns.length - 1, columnIndex + 1); break;
         }
-        
+
         column = navigableColumns[columnIndex];
         this.state.ui.activeCell = { rowIndex, column };
         this.state.ui.inputMode = (column === 'width' || column === 'height') ? column : this.state.ui.inputMode;
         this.state.ui.selectedRowIndex = null;
-        
+
         const currentItem = items[rowIndex];
         if (currentItem && (column === 'width' || column === 'height')) {
             this.state.ui.inputValue = String(currentItem[column] || '');
         } else {
             this.state.ui.inputValue = '';
         }
-        
+
         this._publishStateChange();
     }
 
@@ -251,7 +251,7 @@ export class StateManager {
         const firstType = eligibleItems[0].fabricType;
         const currentIndex = TYPE_SEQUENCE.indexOf(firstType);
         const nextType = TYPE_SEQUENCE[(currentIndex + 1) % TYPE_SEQUENCE.length];
-        
+
         let changed = false;
         items.forEach(item => {
             if (item.width && item.height) {
@@ -273,7 +273,7 @@ export class StateManager {
         const items = this.state.quoteData.rollerBlindItems;
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         let firstError = null;
-        
+
         items.forEach((item, index) => {
             item.linePrice = null;
 
@@ -295,11 +295,11 @@ export class StateManager {
 
         const totalSum = items.reduce((sum, item) => sum + (item.linePrice || 0), 0);
         this.state.quoteData.summary.totalSum = totalSum;
-        
+
         if (firstError) {
             this.state.ui.isSumOutdated = true;
             this._publishStateChange();
-            
+
             this.eventAggregator.publish('showNotification', { message: firstError.message, type: 'error' });
             this.state.ui.activeCell = { rowIndex: firstError.rowIndex, column: firstError.column };
         } else {
