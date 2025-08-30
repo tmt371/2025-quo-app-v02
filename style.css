@@ -43,9 +43,9 @@ html, body {
     top: 0;
     background-color: var(--app-bg-color);
     z-index: 10;
-    /* [修改] 移除偽元素方案，採用加粗上框線的方案來填補縫隙 */
-    border: 1px solid #ddd;
-    border-width: 6px 1px 2px 1px; /* 上6px, 左右1px, 下2px */
+    /* [修改] 精確設定表頭邊框，使用同色粗上框線來解決縫隙問題 */
+    border-top: 6px solid var(--app-bg-color);
+    border-bottom: 2px solid var(--panel-border-color);
 }
 
 .results-table th, .results-table td {
@@ -55,6 +55,13 @@ html, body {
     word-break: break-all;
 }
 
+/* [修改] 移除表頭單元格的上、下邊框，由 thead 的邊框統一管理，避免雙重邊框 */
+.results-table th {
+    border-top: none;
+    border-bottom: none;
+}
+
+
 .results-table .col-sequence { width: 40px; }
 .results-table .col-w { width: auto; }
 .results-table .col-h { width: auto; }
@@ -63,7 +70,8 @@ html, body {
 
 .results-table th.input-display-header {
     padding: 0;
-    border: none; /* 移除外層th的邊框，讓input自己控制 */
+    border-left: 1px solid #ddd;
+    border-right: 1px solid #ddd;
 }
 
 .input-display-cell {
@@ -73,7 +81,7 @@ html, body {
     text-align: right;
     height: 100%;
     width: 100%;
-    border: 1px solid #ddd; /* 為 input 加上自己的邊框 */
+    border: none;
     box-sizing: border-box;
     padding: 8px;
 }
@@ -107,8 +115,8 @@ html, body {
 .virtual-keyboard {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    /* [修改] 調整網格行高，將最後一行的比例設為 0.9 */
-    grid-template-rows: 1fr 1fr 1fr 0.9fr;
+    /* [修改] 調整網格行高，將最後一行的比例設為 0.7 (縮小三成) */
+    grid-template-rows: 1fr 1fr 1fr 0.7fr;
     gap: 8px;
 }
 
@@ -181,13 +189,12 @@ html, body {
     text-align: right;
 }
 
-/* [修改] 調整 SUM 總和顏色邏輯 */
 .top-summary-container .value.is-outdated {
-    color: #999999; /* 有問題時顯示 70% 灰色 */
+    color: #999999;
 }
 
 .top-summary-container .value.is-current {
-    color: #ec4899; /* 沒問題時顯示桃紅色 */
+    color: #ec4899;
 }
 
 .panel-toggle .toggle-arrow {
