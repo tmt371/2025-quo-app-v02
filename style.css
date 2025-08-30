@@ -8,44 +8,82 @@
     --primary-color: #1a237e;
     --medium-blue-color: #1976D2;
 }
+
 html, body {
     height: 100%; margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #f0f2f5; overflow: hidden;
 }
+
 .app-container {
     display: flex; flex-direction: column;
-    height: 100%; width: 100%;
+    height: 100vh; /* 使用 vh 確保佔滿整個可視高度 */
+    width: 100%;
     max-width: 1000px; margin: 0 auto;
     background-color: var(--app-bg-color);
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
+
 .results-panel {
-    flex-grow: 1; overflow-y: auto; padding: 20px; box-sizing: border-box;
+    flex-grow: 1;
+    overflow-y: auto;
+    position: relative; /* 為 a-z-index 層級提供基礎 */
+    padding: 20px;
+    padding-top: 5px; /* 縮小頂部間距 */
+    box-sizing: border-box;
 }
-.results-header {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 10px;
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed; /* 固定佈局，防止內容撐開欄寬 */
 }
-.results-header h3 { margin: 0; color: var(--primary-color); }
-.total-sum-container {
-    display: flex; align-items: center; border: 1px solid var(--panel-border-color);
-    padding: 5px 10px; border-radius: 4px; background-color: #f9fafb;
+
+/* --- [新增] 凍結窗格 (Sticky Header) --- */
+.results-table thead {
+    position: sticky;
+    top: 0;
+    background-color: var(--app-bg-color);
+    z-index: 10;
 }
-.total-sum-container .label { font-weight: bold; margin-right: 8px; color: #374151; }
-.total-sum-container .value {
-    font-size: 1.2em; font-weight: bold; color: var(--medium-blue-color);
-    min-width: 80px; text-align: right;
+
+.results-table th, .results-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    word-break: break-all;
 }
-.results-table { width: 100%; border-collapse: collapse; }
-.results-table th, .results-table td { border: 1px solid #ddd; padding: 8px; text-align: center; transition: background-color 0.3s; }
-.results-table th:first-child, .results-table td:first-child {
-    width: 40px;
+
+/* --- [新增] 響應式欄位寬度 --- */
+.results-table .col-sequence { width: 40px; }
+.results-table .col-w { width: auto; }
+.results-table .col-h { width: auto; }
+.results-table .col-type { width: auto; }
+.results-table .col-price { width: 90px; }
+
+
+/* --- [新增] 用於放置 input 的表頭儲存格 --- */
+.results-table th.input-display-header {
+    padding: 0;
 }
-.results-table th[data-column="sequence"], .results-table td[data-column="sequence"] {
-    cursor: pointer;
+
+.input-display-cell {
+    background-color: #fffacd; /* 淡黃色 */
+    font-size: 1.1em; /* 調整字體大小 */
+    font-weight: bold;
+    text-align: right;
+    height: 100%;
+    width: 100%;
+    border: none;
+    box-sizing: border-box;
+    padding: 8px;
 }
-.results-table thead { background-color: #f2f2f2; }
+
+.results-table td.price-cell {
+    text-align: right;
+    font-size: 0.9em;
+}
+
 .results-table td.active-input-cell {
     box-shadow: inset 0 0 0 2px var(--primary-color);
 }
@@ -55,96 +93,105 @@ html, body {
 }
 .type-bo1 { font-weight: bold; font-style: italic; }
 .type-sn { color: var(--medium-blue-color); font-weight: bold; }
+
 .keyboard-panel {
-    flex-shrink: 0; background-color: var(--keyboard-bg-color);
+    flex-shrink: 0;
+    background-color: var(--keyboard-bg-color);
     border-top: 1px solid var(--panel-border-color);
-    padding: 15px; padding-top: 35px;
-    position: relative; transition: all 0.3s ease-in-out;
+    padding: 15px;
+    padding-top: 45px; /* 增加頂部空間給 SUM 和把手 */
+    position: relative;
+    transition: all 0.3s ease-in-out;
     box-sizing: border-box;
 }
 
-.input-area-container,
+/* --- [重構] 全新的 5x4 虛擬鍵盤 --- */
 .virtual-keyboard {
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(4, 1fr);
     gap: 8px;
 }
-.input-area-container {
-    margin-bottom: 15px;
-    align-items: stretch;
-}
-.input-display {
-    border: 1px solid #ccc;
-    background-color: #fffacd; /* 淡黃色 */
-    padding: 10px; font-size: 1.8em; text-align: right;
-    border-radius: 4px; display: flex; align-items: center; justify-content: flex-end;
-    /* --- [修改] 精確對齊：從第 7 欄開始，到第 10 欄結束，與下方 9 鍵對齊 --- */
-    grid-column: 7 / 10;
-    grid-row: 2 / 3;
-    /* --- [修改] 設定固定高度，與按鈕視覺上一致 --- */
-    min-height: 40px;
-    box-sizing: border-box; /* 確保 padding 不會增加高度 */
-}
-.function-keys { display: none; }
 
-.batch-keys-grid {
-    grid-column: 1 / 13;
-    grid-row: 1 / 3;
-    display: grid;
-    grid-template-columns: repeat(12, 1fr); /* 統一使用 12 欄 */
-    grid-template-rows: 1fr 1fr;
-    gap: 8px;
-}
-.batch-keys-grid button {
-    padding: 12px 5px; font-size: 1.1em;
-    cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff;
-    display: flex; justify-content: center; align-items: center; font-weight: 500;
-}
-/* --- [修改] 按鈕基於 12 欄系統重新定位 --- */
-#key-batch-bo { grid-column: 1 / 3; grid-row: 1 / 2; }
-#key-batch-bo1 { grid-column: 3 / 5; grid-row: 1 / 2; }
-#key-batch-sn { grid-column: 5 / 7; grid-row: 1 / 2; }
-#key-batch-price { grid-column: 1 / 3; grid-row: 2 / 3; }
-#key-clear { grid-column: 3 / 5; grid-row: 2 / 3; }
-#key-sum { grid-column: 5 / 7; grid-row: 2 / 3; }
-
-
-.virtual-keyboard, .input-display { transition: opacity 0.2s, visibility 0.2s; }
 .virtual-keyboard button {
-    padding: 12px 5px; font-size: 1.3em;
+    padding: 10px 5px; font-size: 1.2em;
     cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff;
     display: flex; justify-content: center; align-items: center; font-weight: 500;
+    transition: background-color 0.1s;
 }
-.virtual-keyboard button[data-key="7"],
-.virtual-keyboard button[data-key="4"],
-.virtual-keyboard button[data-key="1"],
-.virtual-keyboard button[data-key="0"] { grid-column: 1 / 4; }
 
-.virtual-keyboard button[data-key="8"],
-.virtual-keyboard button[data-key="5"],
-.virtual-keyboard button[data-key="2"] { grid-column: 4 / 7; }
+.virtual-keyboard button:active {
+    background-color: #a0d3e8;
+}
 
-.virtual-keyboard button[data-key="9"],
-.virtual-keyboard button[data-key="6"],
-.virtual-keyboard button[data-key="3"],
-.virtual-keyboard button[data-key="DEL"] { grid-column: 7 / 10; }
+.virtual-keyboard button:disabled {
+    background-color: #f3f4f6;
+    opacity: 0.5;
+    cursor: not-allowed;
+}
 
-.virtual-keyboard button[data-key="W"],
-.virtual-keyboard button[data-key="H"],
-.virtual-keyboard button[data-key="ENT"] { grid-column: 10 / 13; }
+/* 使用 grid-area 精確布局 */
+#key-7 { grid-area: 1 / 1; }
+#key-8 { grid-area: 1 / 2; }
+#key-9 { grid-area: 1 / 3; }
+#key-w { grid-area: 1 / 4; background-color: #e5e7eb; }
+#key-type { grid-area: 1 / 5; font-weight: bold; }
 
-.virtual-keyboard button[data-key="0"] { grid-column: 1 / 7; }
-.virtual-keyboard button[data-key="ENT"] { grid-row: 3 / 5; }
+#key-4 { grid-area: 2 / 1; }
+#key-5 { grid-area: 2 / 2; }
+#key-6 { grid-area: 2 / 3; }
+#key-h { grid-area: 2 / 4; background-color: #e5e7eb; }
+#key-price { grid-area: 2 / 5; font-size: 1.5em; color: #059669; font-weight: bold; }
 
+#key-1 { grid-area: 3 / 1; }
+#key-2 { grid-area: 3 / 2; }
+#key-3 { grid-area: 3 / 3; }
+#key-enter { grid-area: 3 / 4 / 5 / 5; background-color: #e5e7eb; font-size: 2.2em; padding-bottom: 20px; }
+
+#key-0 { grid-area: 4 / 1 / 4 / 3; }
+#key-del { grid-area: 4 / 3; font-size: 1.8em; }
+#key-clear { grid-area: 4 / 5; color: #ec4899; font-weight: bold; }
 
 .panel-toggle {
-    position: absolute; top: 5px;
-    left: 18%;
+    position: absolute; top: 8px; /* 微調位置 */
+    left: 15%;
     transform: translateX(-50%);
-    width: 80px; height: 20px;
-    border: 1px solid #ccc; background-color: #fff; border-radius: 10px;
+    width: 80px; height: 25px;
+    border: 1px solid #ccc; background-color: #fff; border-radius: 12px;
     cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10;
 }
+
+/* --- [新增] 鍵盤頂部的 SUM 顯示區 --- */
+.top-summary-container {
+    position: absolute;
+    top: 8px; /* 微調位置 */
+    right: 25px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.top-summary-container .label {
+    font-size: 1.1em;
+    color: #333;
+}
+
+.top-summary-container .value {
+    font-size: 1.2em;
+    font-weight: bold;
+    min-width: 80px;
+    text-align: right;
+}
+
+.top-summary-container .value.is-outdated {
+    color: #ec4899; /* 桃紅色 */
+}
+
+.top-summary-container .value.is-current {
+    color: #000; /* 黑色 */
+}
+
 .panel-toggle .toggle-arrow {
     width: 20px; height: 20px; transition: opacity 0.3s ease-in-out; position: absolute;
 }
@@ -154,35 +201,13 @@ html, body {
 .keyboard-panel.is-collapsed .panel-toggle { top: 50%; transform: translateX(-50%) translateY(-50%); }
 .keyboard-panel.is-collapsed .arrow-down { opacity: 0; }
 .keyboard-panel.is-collapsed .arrow-up { opacity: 1; }
-.keyboard-panel.is-collapsed .input-area-container,
-.keyboard-panel.is-collapsed .virtual-keyboard { visibility: hidden; opacity: 0; }
-.key-function { background-color: #e5e7eb; }
-.virtual-keyboard .key-enter-style {
-    background-color: #FCFCFC;
+.keyboard-panel.is-collapsed .virtual-keyboard,
+.keyboard-panel.is-collapsed .top-summary-container {
+    visibility: hidden; opacity: 0;
 }
-.virtual-keyboard .key-del-style {
-    background-color: #F2F2F2;
-}
-.batch-keys-grid .key-sum { background-color: #dbeafe; font-weight: bold; color: #1e40af; }
-.batch-keys-grid .key-clear {
-    color: #ec4899;
-    font-weight: bold;
-}
-.batch-keys-grid .key-batch-price {
-    color: #059669;
-    font-weight: bold;
-    font-size: 1.5em !important;
-}
-.batch-keys-grid .key-batch-bo1 {
-    font-weight: bold;
-    font-style: italic;
-}
-.batch-keys-grid .key-batch-sn {
-    color: var(--medium-blue-color);
-    font-weight: bold;
-}
+
+
 #function-panel {
-    position: relative;
     position: fixed; top: 0; right: 0;
     width: 324px;
     height: 100%;
@@ -236,9 +261,6 @@ html, body {
     background-color: #f3f4f6;
     opacity: 0.5;
     cursor: not-allowed;
-}
-.function-buttons {
-   display: none;
 }
 #key-save { background-color: #dcfce7; }
 #key-load { background-color: #ffedd5; }
