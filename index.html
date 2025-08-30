@@ -3,25 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ez Blinds Quotee v0.2</title>
+    <title>Ez Blinds Quotee v0.3 - Spreadsheet Mode</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app" class="app-container">
         <div class="results-panel">
-            <div class="results-header">
-                <h3>Ez Blinds Quote</h3>
-                <div class="total-sum-container">
-                    <span class="label">Sum</span>
-                    <span class="value" id="total-sum-value"></span>
-                </div>
-            </div>
             <table class="results-table" id="results-table">
                 <thead>
                     <tr>
-                        <th data-column="sequence">#</th>
-                        <th data-column="W">W</th><th data-column="H">H</th>
-                        <th data-column="TYPE">TYPE</th><th data-column="Price">Price</th>
+                        <th class="col-sequence">#</th>
+                        <th class="col-w">W</th>
+                        <th class="col-h">H</th>
+                        <th class="col-type">TYPE</th>
+                        <th class="input-display-header col-price">
+                            <input type="text" class="input-display-cell" id="input-display-cell" readonly>
+                        </th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -33,25 +30,32 @@
                 <svg class="toggle-arrow arrow-up" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" /></svg>
             </div>
             
-            <div class="input-area-container">
-                <div class="batch-keys-grid">
-                    <button id="key-batch-bo">BO</button>
-                    <button id="key-batch-bo1" class="key-batch-bo1">BO1</button>
-                    <button id="key-batch-sn" class="key-batch-sn">SN</button>
-                    <button id="key-batch-price" class="key-batch-price">$</button>
-                    <button id="key-clear" class="key-clear">C</button>
-                    <button id="key-sum" class="key-sum">SUM</button>
-                </div>
-                <div class="input-display" id="input-display"></div>
+            <div class="top-summary-container" id="top-summary-container">
+                <span class="label">SUM</span>
+                <span class="value is-current" id="total-sum-value"></span>
             </div>
 
             <div class="virtual-keyboard" id="numeric-keyboard">
-                <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key="W" class="key-function">W</button>
-                <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="H" class="key-function">H</button>
-                <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
-                <button data-key="ENT" class="key-enter key-enter-style" style="font-size: 2.5em; padding-bottom: 25px;">&#x23CE;</button>
-                <button data-key="0" class="key-zero">0</button>
-                <button data-key="DEL" class="key-del-style" style="font-size: 1.8em;">&#x2B05;</button>
+                <button id="key-7">7</button>
+                <button id="key-8">8</button>
+                <button id="key-9">9</button>
+                <button id="key-w">W</button>
+                <button id="key-type">Type</button>
+
+                <button id="key-4">4</button>
+                <button id="key-5">5</button>
+                <button id="key-6">6</button>
+                <button id="key-h">H</button>
+                <button id="key-price">$</button>
+
+                <button id="key-1">1</button>
+                <button id="key-2">2</button>
+                <button id="key-3">3</button>
+                <button id="key-enter">&#x23CE;</button>
+                
+                <button id="key-0">0</button>
+                <button id="key-del">&#x2B05;</button>
+                <button id="key-clear">C</button>
             </div>
         </div>
     </div>

@@ -6,9 +6,9 @@ export class InputHandler {
     }
 
     initialize() {
-        this._setupNumericKeyboard();
+        this._setupNumericKeyboard(); // 重構此方法以包含所有新鍵盤按鈕
         this._setupTableInteraction();
-        this._setupFunctionKeys();
+        this._setupFunctionKeys(); // 移除舊的監聽，保留側邊欄的
         this._setupPanelToggles();
         this._setupFileLoader();
         this._setupPhysicalKeyboard();
@@ -35,6 +35,8 @@ export class InputHandler {
                 switch (event.key.toLowerCase()) {
                     case 'w': keyToPublish = 'W'; break;
                     case 'h': keyToPublish = 'H'; break;
+                    case 't': this.eventAggregator.publish('userRequestedCycleType'); return; // [新增] 't' 鍵觸發 Type
+                    case '$': this.eventAggregator.publish('userRequestedCalculateAndSum'); return; // [新增] '$' 鍵觸發計算
                     case 'enter': keyToPublish = 'ENT'; event.preventDefault(); break;
                     case 'backspace': keyToPublish = 'DEL'; event.preventDefault(); break;
                     case 'delete': eventToPublish = 'userRequestedClearRow'; break;
@@ -84,14 +86,7 @@ export class InputHandler {
     }
 
     _setupFunctionKeys() {
-        const clearButton = document.getElementById('key-clear');
-        if (clearButton) {
-            clearButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedClearRow'); });
-        }
-        const sumButton = document.getElementById('key-sum');
-        if (sumButton) {
-            sumButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedSummation'); });
-        }
+        // [保留] 側邊功能面板的按鈕監聽
         const insertButton = document.getElementById('key-insert');
         if (insertButton) {
             insertButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedInsertRow'); });
@@ -109,15 +104,12 @@ export class InputHandler {
         if (loadButton && fileLoader) {
             loadButton.addEventListener('click', () => { fileLoader.click(); });
         }
-        
-        // --- [修改] 更新 Export 按鈕的 ID，並移除 Email 按鈕的監聽 ---
         const exportButton = document.getElementById('key-export');
         if (exportButton) {
             exportButton.addEventListener('click', () => {
                 this.eventAggregator.publish('userRequestedExportCSV');
             });
         }
-
         const resetButton = document.getElementById('key-reset');
         if (resetButton) {
             resetButton.addEventListener('click', () => {
@@ -125,39 +117,46 @@ export class InputHandler {
             });
         }
 
-        // 批次設定布料款式
-        const batchBoButton = document.getElementById('key-batch-bo');
-        if (batchBoButton) {
-            batchBoButton.addEventListener('click', () => { this.eventAggregator.publish('userBatchSetType', { fabricType: 'BO' }); });
-        }
-        const batchBo1Button = document.getElementById('key-batch-bo1');
-        if (batchBo1Button) {
-            batchBo1Button.addEventListener('click', () => { this.eventAggregator.publish('userBatchSetType', { fabricType: 'BO1' }); });
-        }
-        const batchSnButton = document.getElementById('key-batch-sn');
-        if (batchSnButton) {
-            batchSnButton.addEventListener('click', () => { this.eventAggregator.publish('userBatchSetType', { fabricType: 'SN' }); });
-        }
-        
-        // 批次計算價格
-        const batchPriceButton = document.getElementById('key-batch-price');
-        if (batchPriceButton) {
-            batchPriceButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedPriceCalculation'); });
-        }
+        // [移除] 所有舊的 batch-keys-grid 按鈕監聽 (key-batch-bo, bo1, sn, price, clear, sum)
     }
-
+    
+    // [重構] 完全重寫此方法以適應新的 5x4 鍵盤
     _setupNumericKeyboard() {
-        const numericKeyboard = document.getElementById('numeric-keyboard');
-        if (numericKeyboard) {
-            numericKeyboard.addEventListener('click', (event) => {
-                const button = event.target.closest('button');
-                if (!button) return;
-                const key = button.dataset.key;
-                if (key) {
-                    this.eventAggregator.publish('numericKeyPressed', { key });
-                }
-            });
-        }
+        const keyboard = document.getElementById('numeric-keyboard');
+        if (!keyboard) return;
+
+        // 使用一個輔助函數來減少重複程式碼
+        const addButtonListener = (id, eventName, data = {}) => {
+            const button = document.getElementById(id);
+            if (button) {
+                button.addEventListener('click', () => {
+                    this.eventAggregator.publish(eventName, data);
+                });
+            }
+        };
+
+        // 數字鍵和操作鍵
+        addButtonListener('key-7', 'numericKeyPressed', { key: '7' });
+        addButtonListener('key-8', 'numericKeyPressed', { key: '8' });
+        addButtonListener('key-9', 'numericKeyPressed', { key: '9' });
+        addButtonListener('key-4', 'numericKeyPressed', { key: '4' });
+        addButtonListener('key-5', 'numericKeyPressed', { key: '5' });
+        addButtonListener('key-6', 'numericKeyPressed', { key: '6' });
+        addButtonListener('key-1', 'numericKeyPressed', { key: '1' });
+        addButtonListener('key-2', 'numericKeyPressed', { key: '2' });
+        addButtonListener('key-3', 'numericKeyPressed', { key: '3' });
+        addButtonListener('key-0', 'numericKeyPressed', { key: '0' });
+        addButtonListener('key-del', 'numericKeyPressed', { key: 'DEL' });
+        addButtonListener('key-enter', 'numericKeyPressed', { key: 'ENT' });
+
+        // 功能鍵
+        addButtonListener('key-w', 'numericKeyPressed', { key: 'W' });
+        addButtonListener('key-h', 'numericKeyPressed', { key: 'H' });
+        
+        // [新增] 新的核心功能鍵事件
+        addButtonListener('key-type', 'userRequestedCycleType'); // 發布新的 Type 循環事件
+        addButtonListener('key-clear', 'userRequestedClearRow'); // C 鍵現在也發布 clear row 事件
+        addButtonListener('key-price', 'userRequestedCalculateAndSum'); // 發布新的複合計算事件
     }
 
     _setupTableInteraction() {
@@ -167,6 +166,12 @@ export class InputHandler {
                 const target = event.target;
                 const isHeader = target.tagName === 'TH';
                 const isCell = target.tagName === 'TD';
+                
+                // [新增] 如果點擊的是表頭中的輸入框，不執行任何操作
+                if (target.id === 'input-display-cell') {
+                    return;
+                }
+
                 if (!isHeader && !isCell) return;
                 const column = target.dataset.column;
                 if (isHeader) {
