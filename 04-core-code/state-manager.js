@@ -12,7 +12,7 @@ export class StateManager {
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
         this.autoSaveTimerId = null;
-        console.log("StateManager (Bugfix rev.2) Initialized.");
+        console.log("StateManager (Bugfix rev.3) Initialized.");
         this.initialize();
     }
 
@@ -63,13 +63,10 @@ export class StateManager {
     _handleFileLoad({ fileName, content }) { let loadedData = null; try { if (fileName.toLowerCase().endsWith('.json')) { loadedData = JSON.parse(content); } else if (fileName.toLowerCase().endsWith('.csv')) { loadedData = csvToData(content); } else { this.eventAggregator.publish('showNotification', { message: `Unsupported file type: ${fileName}`, type: 'error' }); return; } if (loadedData && loadedData.rollerBlindItems) { const freshUIState = this._getInitialState().ui; this.state.quoteData = loadedData; this.state.ui = freshUIState; this.state.ui.isSumOutdated = true; this._publishStateChange(); this.eventAggregator.publish('showNotification', { message: `Successfully loaded data from ${fileName}` }); } else { throw new Error("Parsed data is not in a valid format."); } } catch (error) { console.error("Failed to load file:", error); this.eventAggregator.publish('showNotification', { message: `Error loading file: ${error.message}`, type: 'error' }); } }
     _handleExportCSV() { try { const csvString = dataToCsv(this.state.quoteData); const fileName = this._generateFileName('csv'); this._triggerDownload(csvString, fileName, 'text/csv;charset=utf-8;'); this.eventAggregator.publish('showNotification', { message: 'CSV file is being downloaded...' }); } catch (error) { console.error("Failed to export CSV file:", error); this.eventAggregator.publish('showNotification', { message: 'Error creating CSV file.', type: 'error' }); } }
     
-    // [新增] 輔助方法：聚焦到指定欄位的第一個空格
     _focusFirstEmptyCell(column) {
         const items = this.state.quoteData.rollerBlindItems;
         const firstEmptyIndex = items.findIndex(item => !item[column]);
-        
         const targetIndex = (firstEmptyIndex !== -1) ? firstEmptyIndex : items.length - 1;
-
         this.state.ui.activeCell = { rowIndex: targetIndex, column: column };
         this.state.ui.inputMode = column;
         this.state.ui.inputValue = '';
@@ -84,9 +81,9 @@ export class StateManager {
             this.state.ui.inputValue = this.state.ui.inputValue.slice(0, -1);
             this._publishStateChange();
         } else if (key === 'W') {
-            this._focusFirstEmptyCell('width'); // [修改]
+            this._focusFirstEmptyCell('width');
         } else if (key === 'H') {
-            this._focusFirstEmptyCell('height'); // [修改]
+            this._focusFirstEmptyCell('height');
         } else if (key === 'ENT') {
             this._commitValue();
         }
@@ -187,11 +184,19 @@ export class StateManager {
         this.state.ui.activeCell = { rowIndex, column };
         this.state.ui.inputMode = (column === 'width' || column === 'height') ? column : this.state.ui.inputMode;
         this.state.ui.selectedRowIndex = null;
-        this.state.ui.inputValue = '';
+        
+        // --- [修改] ---
+        // 當移動到新的儲存格時，將該格的現有值載入到 inputValue 中
+        const currentItem = items[rowIndex];
+        if (currentItem && (column === 'width' || column === 'height')) {
+            this.state.ui.inputValue = String(currentItem[column] || '');
+        } else {
+            this.state.ui.inputValue = ''; // 如果是 TYPE 欄或其他情況，則清空
+        }
+        
         this._publishStateChange();
     }
 
-    // [修改] Type 鍵改為批次處理
     _handleCycleType() {
         const items = this.state.quoteData.rollerBlindItems;
         const eligibleItems = items.filter(item => item.width && item.height);
@@ -219,14 +224,12 @@ export class StateManager {
         }
     }
 
-    // [修改] $ 鍵的複合計算與錯誤處理邏輯
     _handleCalculateAndSum() {
         const items = this.state.quoteData.rollerBlindItems;
         const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
         let firstError = null;
         
         items.forEach((item, index) => {
-            // 清除舊價格以便重新計算
             item.linePrice = null;
 
             if (item.width && item.height && item.fabricType) {
@@ -235,7 +238,6 @@ export class StateManager {
                 if (result.price !== null) {
                     item.linePrice = result.price;
                 } else if (result.error && !firstError) {
-                    // 只記錄第一個錯誤
                     const errorColumn = result.error.toLowerCase().includes('width') ? 'width' : 'height';
                     firstError = {
                         message: `Row ${index + 1}: ${result.error}`,
@@ -250,14 +252,13 @@ export class StateManager {
         this.state.quoteData.summary.totalSum = totalSum;
         
         if (firstError) {
-            this.state.ui.isSumOutdated = true; // 總價不完整，標示為過期
-            this._publishStateChange(); // 先渲染一次計算出的價格
+            this.state.ui.isSumOutdated = true;
+            this._publishStateChange();
             
-            // 然後再發布通知並聚焦
             this.eventAggregator.publish('showNotification', { message: firstError.message, type: 'error' });
             this.state.ui.activeCell = { rowIndex: firstError.rowIndex, column: firstError.column };
         } else {
-            this.state.ui.isSumOutdated = false; // 所有計算都成功
+            this.state.ui.isSumOutdated = false;
         }
 
         this._publishStateChange();

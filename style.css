@@ -17,7 +17,7 @@ html, body {
 
 .app-container {
     display: flex; flex-direction: column;
-    height: 100%; /* [修改] 從 100vh 改為 100%，以改善行動裝置相容性 */
+    height: 100%;
     width: 100%;
     max-width: 1000px; margin: 0 auto;
     background-color: var(--app-bg-color);
@@ -27,24 +27,26 @@ html, body {
 .results-panel {
     flex-grow: 1;
     overflow-y: auto;
-    position: relative; /* 為 a-z-index 層級提供基礎 */
-    padding: 20px;
-    padding-top: 5px; /* 縮小頂部間距 */
+    position: relative;
+    /* [修改] 移除 padding-top 來解決縫隙問題 */
+    padding: 0 20px 20px 20px; 
     box-sizing: border-box;
 }
 
 .results-table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; /* 固定佈局，防止內容撐開欄寬 */
+    table-layout: fixed;
 }
 
-/* --- [新增] 凍結窗格 (Sticky Header) --- */
 .results-table thead {
     position: sticky;
     top: 0;
     background-color: var(--app-bg-color);
     z-index: 10;
+    /* [新增] 增加同色邊框來填補縫隙，並強化底部邊框 */
+    border-top: 5px solid var(--app-bg-color);
+    border-bottom: 2px solid var(--panel-border-color);
 }
 
 .results-table th, .results-table td {
@@ -54,22 +56,19 @@ html, body {
     word-break: break-all;
 }
 
-/* --- [新增] 響應式欄位寬度 --- */
 .results-table .col-sequence { width: 40px; }
 .results-table .col-w { width: auto; }
 .results-table .col-h { width: auto; }
 .results-table .col-type { width: auto; }
 .results-table .col-price { width: 90px; }
 
-
-/* --- [新增] 用於放置 input 的表頭儲存格 --- */
 .results-table th.input-display-header {
     padding: 0;
 }
 
 .input-display-cell {
-    background-color: #fffacd; /* 淡黃色 */
-    font-size: 1.1em; /* 調整字體大小 */
+    background-color: #fffacd;
+    font-size: 1.1em;
     font-weight: bold;
     text-align: right;
     height: 100%;
@@ -99,13 +98,12 @@ html, body {
     background-color: var(--keyboard-bg-color);
     border-top: 1px solid var(--panel-border-color);
     padding: 15px;
-    padding-top: 45px; /* 增加頂部空間給 SUM 和把手 */
+    padding-top: 45px;
     position: relative;
     transition: all 0.3s ease-in-out;
     box-sizing: border-box;
 }
 
-/* --- [重構] 全新的 5x4 虛擬鍵盤 --- */
 .virtual-keyboard {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -130,7 +128,6 @@ html, body {
     cursor: not-allowed;
 }
 
-/* 使用 grid-area 精確布局 */
 #key-7 { grid-area: 1 / 1; }
 #key-8 { grid-area: 1 / 2; }
 #key-9 { grid-area: 1 / 3; }
@@ -153,7 +150,7 @@ html, body {
 #key-clear { grid-area: 4 / 5; color: #ec4899; font-weight: bold; }
 
 .panel-toggle {
-    position: absolute; top: 8px; /* 微調位置 */
+    position: absolute; top: 8px;
     left: 15%;
     transform: translateX(-50%);
     width: 80px; height: 25px;
@@ -161,10 +158,9 @@ html, body {
     cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10;
 }
 
-/* --- [新增] 鍵盤頂部的 SUM 顯示區 --- */
 .top-summary-container {
     position: absolute;
-    top: 8px; /* 微調位置 */
+    top: 8px;
     right: 25px;
     height: 30px;
     display: flex;
@@ -185,11 +181,11 @@ html, body {
 }
 
 .top-summary-container .value.is-outdated {
-    color: #ec4899; /* 桃紅色 */
+    color: #ec4899;
 }
 
 .top-summary-container .value.is-current {
-    color: #000; /* 黑色 */
+    color: #000;
 }
 
 .panel-toggle .toggle-arrow {
@@ -206,10 +202,9 @@ html, body {
     visibility: hidden; opacity: 0;
 }
 
-
 #function-panel {
     position: fixed; top: 0; right: 0;
-    width: 324px;
+    width: 290px; /* [修改] 縮小寬度以適應行動裝置 */
     height: 100%;
     background-color: #e5e7eb;
     border-left: 1px solid var(--panel-border-color);
