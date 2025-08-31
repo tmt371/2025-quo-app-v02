@@ -3,20 +3,22 @@
 import { EventAggregator } from './event-aggregator.js';
 import { ConfigManager } from './config-manager.js';
 import { InputHandler } from './input-handler.js';
-import { UIManager } from './ui-manager.js';
-import { StateManager } from './state-manager.js';
+import { UIManager } from './ui/ui-manager.js';
+import { AppController } from './app-controller.js';
 
 import { initialState } from './config/initial-state.js';
-import { PersistenceService } from './services/persistence-service.js';
 import { ProductFactory } from './strategies/product-factory.js';
 
-// --- [新增] 將自動儲存的金鑰也定義在此，確保與 StateManager 一致 ---
+import { QuoteService } from './services/quote-service.js';
+import { CalculationService } from './services/calculation-service.js';
+import { FocusService } from './services/focus-service.js';
+
+
 const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
 
 class App {
     constructor() {
-        // --- [修改] 增加啟動時檢查自動儲存的邏輯 ---
-        let startingState = JSON.parse(JSON.stringify(initialState)); // 使用深拷貝確保初始狀態純淨
+        let startingState = JSON.parse(JSON.stringify(initialState));
         try {
             const autoSavedDataJSON = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
             if (autoSavedDataJSON) {
@@ -26,64 +28,66 @@ class App {
                     startingState.quoteData = autoSavedData;
                     console.log("Restored data from auto-save.");
                 } else {
-                    // 如果使用者選擇不恢復，可以選擇性地清除草稿
                     localStorage.removeItem(AUTOSAVE_STORAGE_KEY);
                     console.log("Auto-saved data discarded by user.");
                 }
             }
         } catch (error) {
             console.error("Failed to process auto-saved data:", error);
-            localStorage.removeItem(AUTOSAVE_STORAGE_KEY); // 如果解析失敗，清除損壞的資料
+            localStorage.removeItem(AUTOSAVE_STORAGE_KEY);
         }
-        // --- [修改結束] ---
         
         this.eventAggregator = new EventAggregator();
         this.configManager = new ConfigManager(this.eventAggregator);
+        // [修改] InputHandler 現在也移入 handlers/ 目錄 (雖然我們還沒建立，但先更新路徑)
+        // 為了保持步驟清晰，我們這次只改 main.js 的邏輯，下次再移動檔案
         this.inputHandler = new InputHandler(this.eventAggregator);
         
-        const persistenceService = new PersistenceService();
         const productFactory = new ProductFactory();
 
-        // 使用我們剛剛決定好的 startingState 來初始化 StateManager
-        this.stateManager = new StateManager({
+        const quoteService = new QuoteService({
             initialState: startingState,
-            persistenceService: persistenceService,
+            productFactory: productFactory
+        });
+        
+        const calculationService = new CalculationService({
+            productFactory: productFactory,
+            configManager: this.configManager
+        });
+
+        const focusService = new FocusService();
+
+        this.appController = new AppController({
+            initialState: startingState,
             productFactory: productFactory,
             configManager: this.configManager,
-            eventAggregator: this.eventAggregator
+            eventAggregator: this.eventAggregator,
+            quoteService: quoteService,
+            calculationService: calculationService,
+            focusService: focusService
         });
         
         this.uiManager = new UIManager(
             document.getElementById('app'), 
-            this.eventAggregator,
-            this.stateManager
+            this.eventAggregator
         );
     }
 
     async run() {
-        console.log("Application starting with corrected architecture...");
+        console.log("Application starting with fully refactored architecture...");
         
         await this.configManager.initialize();
 
+        // [修改] 只保留最核心的 stateChanged 事件訂閱
         this.eventAggregator.subscribe('stateChanged', (state) => {
             this.uiManager.render(state);
         });
-        this.eventAggregator.subscribe('showNotification', (data) => {
-            const toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) return;
-            const toast = document.createElement('div');
-            toast.className = 'toast-message';
-            toast.textContent = data.message;
-            if (data.type === 'error') {
-                toast.classList.add('error');
-            }
-            toastContainer.appendChild(toast);
-            setTimeout(() => {
-                toast.remove();
-            }, 4000);
-        });
 
-        this.stateManager.publishInitialState(); 
+        // --- [移除] ---
+        // 關於 'showNotification' 的事件訂閱和 DOM 操作邏輯已被完全移除，
+        // 因為它現在由 UIManager 內部的 NotificationComponent 全權負責。
+        
+        this.appController.publishInitialState(); 
         this.inputHandler.initialize(); 
         console.log("Application running and interactive.");
     }
