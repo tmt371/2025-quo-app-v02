@@ -12,6 +12,7 @@ export class InputHandler {
         this._setupPanelToggles();
         this._setupFileLoader();
         this._setupPhysicalKeyboard();
+        console.log("InputHandler Initialized and all listeners are active.");
     }
     
     _setupPhysicalKeyboard() {
@@ -19,12 +20,16 @@ export class InputHandler {
             if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
                 return;
             }
+            
+            console.log(`Physical key pressed: ${event.key}`); // 偵錯日誌
+
             let keyToPublish = null;
             let eventToPublish = 'numericKeyPressed';
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(event.key)) {
                 event.preventDefault();
                 const direction = event.key.replace('Arrow', '').toLowerCase();
+                console.log('InputHandler publishing:', 'userMovedActiveCell', { direction });
                 this.eventAggregator.publish('userMovedActiveCell', { direction });
                 return;
             }
@@ -35,16 +40,18 @@ export class InputHandler {
                 switch (event.key.toLowerCase()) {
                     case 'w': keyToPublish = 'W'; break;
                     case 'h': keyToPublish = 'H'; break;
-                    case 't': this.eventAggregator.publish('userRequestedCycleType'); return;
-                    case '$': this.eventAggregator.publish('userRequestedCalculateAndSum'); return;
+                    case 't': console.log('InputHandler publishing:', 'userRequestedCycleType'); this.eventAggregator.publish('userRequestedCycleType'); return;
+                    case '$': console.log('InputHandler publishing:', 'userRequestedCalculateAndSum'); this.eventAggregator.publish('userRequestedCalculateAndSum'); return;
                     case 'enter': keyToPublish = 'ENT'; event.preventDefault(); break;
                     case 'backspace': keyToPublish = 'DEL'; event.preventDefault(); break;
                     case 'delete': eventToPublish = 'userRequestedClearRow'; break;
                 }
             }
             if (keyToPublish !== null) {
+                console.log('InputHandler publishing:', eventToPublish, { key: keyToPublish });
                 this.eventAggregator.publish(eventToPublish, { key: keyToPublish });
             } else if (eventToPublish === 'userRequestedClearRow') {
+                console.log('InputHandler publishing:', eventToPublish);
                 this.eventAggregator.publish(eventToPublish);
             }
         });
@@ -59,9 +66,11 @@ export class InputHandler {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const content = e.target.result;
+                    console.log('InputHandler publishing:', 'fileLoaded');
                     this.eventAggregator.publish('fileLoaded', { fileName: file.name, content: content });
                 };
                 reader.onerror = () => {
+                    console.log('InputHandler publishing:', 'showNotification', 'Error reading file');
                     this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
                 };
                 reader.readAsText(file);
@@ -71,47 +80,38 @@ export class InputHandler {
     }
     
     _setupPanelToggles() {
-        // [修改] 只保留數字鍵盤的 toggle 邏輯
         const numericToggle = document.getElementById('panel-toggle');
         if (numericToggle) {
             numericToggle.addEventListener('click', () => {
+                console.log('InputHandler publishing:', 'userToggledNumericKeyboard');
                 this.eventAggregator.publish('userToggledNumericKeyboard');
             });
         }
-        
-        // --- [移除] ---
-        // 關於 function-panel-toggle 的監聽已被移除，
-        // 因為 PanelComponent 現在自己處理這個點擊事件。
     }
 
     _setupFunctionKeys() {
-        const insertButton = document.getElementById('key-insert');
-        if (insertButton) {
-            insertButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedInsertRow'); });
-        }
-        const deleteButton = document.getElementById('key-delete');
-        if (deleteButton) {
-            deleteButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedDeleteRow'); });
-        }
-        const saveButton = document.getElementById('key-save');
-        if (saveButton) {
-            saveButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedSave'); });
-        }
+        const setupButton = (id, eventName) => {
+            const button = document.getElementById(id);
+            if (button) {
+                button.addEventListener('click', () => {
+                    console.log('InputHandler publishing:', eventName);
+                    this.eventAggregator.publish(eventName);
+                });
+            }
+        };
+
+        setupButton('key-insert', 'userRequestedInsertRow');
+        setupButton('key-delete', 'userRequestedDeleteRow');
+        setupButton('key-save', 'userRequestedSave');
+        setupButton('key-export', 'userRequestedExportCSV');
+        setupButton('key-reset', 'userRequestedReset');
+
         const loadButton = document.getElementById('key-load');
         const fileLoader = document.getElementById('file-loader');
         if (loadButton && fileLoader) {
-            loadButton.addEventListener('click', () => { fileLoader.click(); });
-        }
-        const exportButton = document.getElementById('key-export');
-        if (exportButton) {
-            exportButton.addEventListener('click', () => {
-                this.eventAggregator.publish('userRequestedExportCSV');
-            });
-        }
-        const resetButton = document.getElementById('key-reset');
-        if (resetButton) {
-            resetButton.addEventListener('click', () => {
-                this.eventAggregator.publish('userRequestedReset');
+            loadButton.addEventListener('click', () => {
+                console.log('Triggering file loader...');
+                fileLoader.click();
             });
         }
     }
@@ -124,6 +124,7 @@ export class InputHandler {
             const button = document.getElementById(id);
             if (button) {
                 button.addEventListener('click', () => {
+                    console.log('InputHandler publishing:', eventName, data);
                     this.eventAggregator.publish(eventName, data);
                 });
             }
@@ -159,25 +160,20 @@ export class InputHandler {
                 const isHeader = target.tagName === 'TH';
                 const isCell = target.tagName === 'TD';
                 
-                if (target.id === 'input-display-cell') {
-                    return;
-                }
-
+                if (target.id === 'input-display-cell') return;
                 if (!isHeader && !isCell) return;
+
                 const column = target.dataset.column;
-                if (isHeader) {
-                    // 表頭點擊功能已全部轉移到鍵盤區
-                } else {
-                    const rowIndex = target.parentElement.dataset.rowIndex;
+                const rowIndex = target.parentElement.dataset.rowIndex;
+
+                if (isCell) {
+                    const eventData = { rowIndex: parseInt(rowIndex, 10), column };
                     if (column === 'sequence') {
-                        this.eventAggregator.publish('sequenceCellClicked', { 
-                            rowIndex: parseInt(rowIndex, 10)
-                        });
+                        console.log('InputHandler publishing:', 'sequenceCellClicked', eventData);
+                        this.eventAggregator.publish('sequenceCellClicked', eventData);
                     } else {
-                        this.eventAggregator.publish('tableCellClicked', { 
-                            rowIndex: parseInt(rowIndex, 10), 
-                            column 
-                        });
+                        console.log('InputHandler publishing:', 'tableCellClicked', eventData);
+                        this.eventAggregator.publish('tableCellClicked', eventData);
                     }
                 }
             });
