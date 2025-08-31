@@ -117,4 +117,15 @@ export class QuoteService {
             summary: { totalSum: null }
         };
     }
+
+    /**
+     * [新增] Checks if the current quote has any meaningful data.
+     * @returns {boolean} True if there is data, false otherwise.
+     */
+    hasData() {
+        const items = this.quoteData.rollerBlindItems;
+        if (!items) return false;
+        // True if there is more than one row, or if the single row has content.
+        return items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
+    }
 }

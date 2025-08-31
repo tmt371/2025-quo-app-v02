@@ -12,7 +12,8 @@ export class InputHandler {
         this._setupPanelToggles();
         this._setupFileLoader();
         this._setupPhysicalKeyboard();
-        console.log("InputHandler Initialized and all listeners are active.");
+        // [移除] 移除上次偵錯用的日誌
+        // console.log("InputHandler Initialized and all listeners are active.");
     }
     
     _setupPhysicalKeyboard() {
@@ -21,15 +22,12 @@ export class InputHandler {
                 return;
             }
             
-            console.log(`Physical key pressed: ${event.key}`); // 偵錯日誌
-
             let keyToPublish = null;
             let eventToPublish = 'numericKeyPressed';
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(event.key)) {
                 event.preventDefault();
                 const direction = event.key.replace('Arrow', '').toLowerCase();
-                console.log('InputHandler publishing:', 'userMovedActiveCell', { direction });
                 this.eventAggregator.publish('userMovedActiveCell', { direction });
                 return;
             }
@@ -40,18 +38,16 @@ export class InputHandler {
                 switch (event.key.toLowerCase()) {
                     case 'w': keyToPublish = 'W'; break;
                     case 'h': keyToPublish = 'H'; break;
-                    case 't': console.log('InputHandler publishing:', 'userRequestedCycleType'); this.eventAggregator.publish('userRequestedCycleType'); return;
-                    case '$': console.log('InputHandler publishing:', 'userRequestedCalculateAndSum'); this.eventAggregator.publish('userRequestedCalculateAndSum'); return;
+                    case 't': this.eventAggregator.publish('userRequestedCycleType'); return;
+                    case '$': this.eventAggregator.publish('userRequestedCalculateAndSum'); return;
                     case 'enter': keyToPublish = 'ENT'; event.preventDefault(); break;
                     case 'backspace': keyToPublish = 'DEL'; event.preventDefault(); break;
                     case 'delete': eventToPublish = 'userRequestedClearRow'; break;
                 }
             }
             if (keyToPublish !== null) {
-                console.log('InputHandler publishing:', eventToPublish, { key: keyToPublish });
                 this.eventAggregator.publish(eventToPublish, { key: keyToPublish });
             } else if (eventToPublish === 'userRequestedClearRow') {
-                console.log('InputHandler publishing:', eventToPublish);
                 this.eventAggregator.publish(eventToPublish);
             }
         });
@@ -66,24 +62,27 @@ export class InputHandler {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const content = e.target.result;
-                    console.log('InputHandler publishing:', 'fileLoaded');
                     this.eventAggregator.publish('fileLoaded', { fileName: file.name, content: content });
                 };
                 reader.onerror = () => {
-                    console.log('InputHandler publishing:', 'showNotification', 'Error reading file');
                     this.eventAggregator.publish('showNotification', { message: `Error reading file: ${reader.error}`, type: 'error' });
                 };
                 reader.readAsText(file);
                 event.target.value = '';
             });
         }
+        // [新增] 監聽來自 AppController 的指令，以觸發檔案選擇視窗
+        this.eventAggregator.subscribe('triggerFileLoad', () => {
+            if (fileLoader) {
+                fileLoader.click();
+            }
+        });
     }
     
     _setupPanelToggles() {
         const numericToggle = document.getElementById('panel-toggle');
         if (numericToggle) {
             numericToggle.addEventListener('click', () => {
-                console.log('InputHandler publishing:', 'userToggledNumericKeyboard');
                 this.eventAggregator.publish('userToggledNumericKeyboard');
             });
         }
@@ -94,7 +93,6 @@ export class InputHandler {
             const button = document.getElementById(id);
             if (button) {
                 button.addEventListener('click', () => {
-                    console.log('InputHandler publishing:', eventName);
                     this.eventAggregator.publish(eventName);
                 });
             }
@@ -106,12 +104,12 @@ export class InputHandler {
         setupButton('key-export', 'userRequestedExportCSV');
         setupButton('key-reset', 'userRequestedReset');
 
+        // [修改] Load 按鈕不再直接觸發 click()，而是發布一個意圖事件
         const loadButton = document.getElementById('key-load');
-        const fileLoader = document.getElementById('file-loader');
-        if (loadButton && fileLoader) {
+        if (loadButton) {
             loadButton.addEventListener('click', () => {
-                console.log('Triggering file loader...');
-                fileLoader.click();
+                this.eventAggregator.publish('userRequestedLoad');
+
             });
         }
     }
@@ -124,7 +122,6 @@ export class InputHandler {
             const button = document.getElementById(id);
             if (button) {
                 button.addEventListener('click', () => {
-                    console.log('InputHandler publishing:', eventName, data);
                     this.eventAggregator.publish(eventName, data);
                 });
             }
@@ -169,10 +166,8 @@ export class InputHandler {
                 if (isCell) {
                     const eventData = { rowIndex: parseInt(rowIndex, 10), column };
                     if (column === 'sequence') {
-                        console.log('InputHandler publishing:', 'sequenceCellClicked', eventData);
                         this.eventAggregator.publish('sequenceCellClicked', eventData);
                     } else {
-                        console.log('InputHandler publishing:', 'tableCellClicked', eventData);
                         this.eventAggregator.publish('tableCellClicked', eventData);
                     }
                 }

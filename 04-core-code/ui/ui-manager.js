@@ -5,6 +5,8 @@ import { HeaderComponent } from './header-component.js';
 import { SummaryComponent } from './summary-component.js';
 import { PanelComponent } from './panel-component.js';
 import { NotificationComponent } from './notification-component.js';
+// [新增] 引入新的 DialogComponent
+import { DialogComponent } from './dialog-component.js';
 
 export class UIManager {
     constructor(appElement, eventAggregator) {
@@ -17,6 +19,7 @@ export class UIManager {
         const clearButtonOnKeyboard = document.getElementById('key-clear');
         this.clearButton = clearButtonOnKeyboard;
         
+        // --- 實例化所有子元件 ---
         const tbodyElement = document.querySelector('.results-table tbody');
         this.tableComponent = new TableComponent(tbodyElement);
 
@@ -26,7 +29,6 @@ export class UIManager {
         const summaryElement = document.getElementById('total-sum-value');
         this.summaryComponent = new SummaryComponent(summaryElement);
 
-        // [修改] 更新 PanelComponent 的實例化方式，移除 toggleEventName
         this.functionPanel = new PanelComponent({
             panelElement: document.getElementById('function-panel'),
             toggleElement: document.getElementById('function-panel-toggle'),
@@ -36,6 +38,12 @@ export class UIManager {
 
         this.notificationComponent = new NotificationComponent({
             containerElement: document.getElementById('toast-container'),
+            eventAggregator: this.eventAggregator
+        });
+
+        // [新增] 實例化對話方塊元件
+        this.dialogComponent = new DialogComponent({
+            overlayElement: document.getElementById('confirmation-dialog-overlay'),
             eventAggregator: this.eventAggregator
         });
 
