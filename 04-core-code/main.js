@@ -3,7 +3,6 @@
 import { EventAggregator } from './event-aggregator.js';
 import { ConfigManager } from './config-manager.js';
 import { InputHandler } from './input-handler.js';
-// [修改] 更新 UIManager 的引用路徑
 import { UIManager } from './ui/ui-manager.js';
 import { AppController } from './app-controller.js';
 
@@ -40,6 +39,8 @@ class App {
         
         this.eventAggregator = new EventAggregator();
         this.configManager = new ConfigManager(this.eventAggregator);
+        // [修改] InputHandler 現在也移入 handlers/ 目錄 (雖然我們還沒建立，但先更新路徑)
+        // 為了保持步驟清晰，我們這次只改 main.js 的邏輯，下次再移動檔案
         this.inputHandler = new InputHandler(this.eventAggregator);
         
         const productFactory = new ProductFactory();
@@ -73,28 +74,19 @@ class App {
     }
 
     async run() {
-        console.log("Application starting with refactored UI layer...");
+        console.log("Application starting with fully refactored architecture...");
         
         await this.configManager.initialize();
 
+        // [修改] 只保留最核心的 stateChanged 事件訂閱
         this.eventAggregator.subscribe('stateChanged', (state) => {
             this.uiManager.render(state);
         });
-        this.eventAggregator.subscribe('showNotification', (data) => {
-            const toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) return;
-            const toast = document.createElement('div');
-            toast.className = 'toast-message';
-            toast.textContent = data.message;
-            if (data.type === 'error') {
-                toast.classList.add('error');
-            }
-            toastContainer.appendChild(toast);
-            setTimeout(() => {
-                toast.remove();
-            }, 4000);
-        });
 
+        // --- [移除] ---
+        // 關於 'showNotification' 的事件訂閱和 DOM 操作邏輯已被完全移除，
+        // 因為它現在由 UIManager 內部的 NotificationComponent 全權負責。
+        
         this.appController.publishInitialState(); 
         this.inputHandler.initialize(); 
         console.log("Application running and interactive.");
