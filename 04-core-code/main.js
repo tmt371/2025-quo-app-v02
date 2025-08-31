@@ -12,6 +12,8 @@ import { ProductFactory } from './strategies/product-factory.js';
 import { QuoteService } from './services/quote-service.js';
 import { CalculationService } from './services/calculation-service.js';
 import { FocusService } from './services/focus-service.js';
+// --- [新增] 引入我們新的 FileService ---
+import { FileService } from './services/file-service.js';
 
 
 const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
@@ -39,12 +41,13 @@ class App {
         
         this.eventAggregator = new EventAggregator();
         this.configManager = new ConfigManager(this.eventAggregator);
-        // [修改] InputHandler 現在也移入 handlers/ 目錄 (雖然我們還沒建立，但先更新路徑)
-        // 為了保持步驟清晰，我們這次只改 main.js 的邏輯，下次再移動檔案
         this.inputHandler = new InputHandler(this.eventAggregator);
         
         const productFactory = new ProductFactory();
 
+        // --- [重構] 按照新的架構順序實例化 ---
+
+        // 1. 實例化所有獨立的 Service
         const quoteService = new QuoteService({
             initialState: startingState,
             productFactory: productFactory
@@ -56,7 +59,10 @@ class App {
         });
 
         const focusService = new FocusService();
+        
+        const fileService = new FileService(); // [新增] 實例化 FileService
 
+        // 2. 實例化 AppController，並注入所有它需要的 Service
         this.appController = new AppController({
             initialState: startingState,
             productFactory: productFactory,
@@ -64,9 +70,11 @@ class App {
             eventAggregator: this.eventAggregator,
             quoteService: quoteService,
             calculationService: calculationService,
-            focusService: focusService
+            focusService: focusService,
+            fileService: fileService // [新增] 注入 FileService
         });
         
+        // 3. 實例化 UIManager
         this.uiManager = new UIManager(
             document.getElementById('app'), 
             this.eventAggregator
@@ -74,18 +82,13 @@ class App {
     }
 
     async run() {
-        console.log("Application starting with fully refactored architecture...");
+        console.log("Application starting with fully refactored architecture (FileService integrated)...");
         
         await this.configManager.initialize();
 
-        // [修改] 只保留最核心的 stateChanged 事件訂閱
         this.eventAggregator.subscribe('stateChanged', (state) => {
             this.uiManager.render(state);
         });
-
-        // --- [移除] ---
-        // 關於 'showNotification' 的事件訂閱和 DOM 操作邏輯已被完全移除，
-        // 因為它現在由 UIManager 內部的 NotificationComponent 全權負責。
         
         this.appController.publishInitialState(); 
         this.inputHandler.initialize(); 
