@@ -16,7 +16,7 @@ export class AppController {
         this.focusService = focusService;
         this.fileService = fileService;
         this.autoSaveTimerId = null;
-        console.log("AppController (Stabilization rev.19) Initialized.");
+        console.log("AppController (Complete Version rev.20) Initialized.");
         this.initialize();
     }
 
@@ -50,7 +50,7 @@ export class AppController {
         this.eventAggregator.publish('stateChanged', this._getFullState());
     }
 
-    // --- 以下為添加了偵錯日誌的事件處理函式 ---
+    // --- 完整的事件處理函式 ---
 
     _handleReset() {
         console.log("AppController handling: userRequestedReset");
@@ -79,6 +79,27 @@ export class AppController {
         }
     }
 
+    _commitValue() {
+        console.log("AppController executing: _commitValue");
+        const { inputValue, inputMode, activeCell } = this.uiState;
+        const value = inputValue === '' ? null : parseInt(inputValue, 10);
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const validationRules = productStrategy.getValidationRules();
+        const rule = validationRules[inputMode];
+        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
+            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
+            this.uiState.inputValue = '';
+            this._publishStateChange();
+            return;
+        }
+        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
+        if (changed) {
+            this.uiState.isSumOutdated = true;
+        }
+        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        this._publishStateChange();
+    }
+
     _handleMoveActiveCell({ direction }) {
         console.log("AppController handling: userMovedActiveCell with direction:", direction);
         this.uiState = this.focusService.moveActiveCell(this.uiState, this.quoteService.getQuoteData(), direction);
@@ -89,7 +110,6 @@ export class AppController {
         console.log("AppController handling: tableCellClicked at:", { rowIndex, column });
         const item = this.quoteService.getQuoteData().rollerBlindItems[rowIndex];
         if (!item) return;
-
         this.uiState.selectedRowIndex = null;
         if (column === 'width' || column === 'height') {
             this.uiState.activeCell = { rowIndex, column };
@@ -136,35 +156,113 @@ export class AppController {
         }
     }
 
-    _commitValue() {
-        console.log("AppController executing: _commitValue");
-        const { inputValue, inputMode, activeCell } = this.uiState;
-        const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
-        const validationRules = productStrategy.getValidationRules();
-        const rule = validationRules[inputMode];
-        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
-            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
-            this.uiState.inputValue = '';
+    _handleCalculateAndSum() {
+        console.log("AppController handling: userRequestedCalculateAndSum");
+        const currentQuoteData = this.quoteService.getQuoteData();
+        const { updatedQuoteData, firstError } = this.calculationService.calculateAndSum(currentQuoteData);
+        this.quoteService.quoteData = updatedQuoteData;
+        if (firstError) {
+            this.uiState.isSumOutdated = true;
             this._publishStateChange();
+            this.eventAggregator.publish('showNotification', { message: firstError.message, type: 'error' });
+            this.uiState.activeCell = { rowIndex: firstError.rowIndex, column: firstError.column };
+        } else {
+            this.uiState.isSumOutdated = false;
+        }
+        this._publishStateChange();
+    }
+
+    _handleSaveToFile() {
+        console.log("AppController handling: userRequestedSave");
+        const quoteData = this.quoteService.getQuoteData();
+        const result = this.fileService.saveToJson(quoteData);
+        const notificationType = result.success ? 'info' : 'error';
+        this.eventAggregator.publish('showNotification', { message: result.message, type: notificationType });
+    }
+
+    _handleExportCSV() {
+        console.log("AppController handling: userRequestedExportCSV");
+        const quoteData = this.quoteService.getQuoteData();
+        const result = this.fileService.exportToCsv(quoteData);
+        const notificationType = result.success ? 'info' : 'error';
+        this.eventAggregator.publish('showNotification', { message: result.message, type: notificationType });
+    }
+
+    _handleFileLoad({ fileName, content }) {
+        console.log("AppController handling: fileLoaded");
+        const result = this.fileService.parseFileContent(fileName, content);
+        if (result.success) {
+            this.quoteService.quoteData = result.data;
+            this.uiState = JSON.parse(JSON.stringify(initialState.ui));
+            this.uiState.isSumOutdated = true;
+            this._publishStateChange();
+            this.eventAggregator.publish('showNotification', { message: result.message });
+        } else {
+            this.eventAggregator.publish('showNotification', { message: result.message, type: 'error' });
+        }
+    }
+
+    _handleInsertRow() {
+        console.log("AppController handling: userRequestedInsertRow");
+        const { selectedRowIndex } = this.uiState;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
             return;
         }
-        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
-        if (changed) {
-            this.uiState.isSumOutdated = true;
+        const newRowIndex = this.quoteService.insertRow(selectedRowIndex);
+        this.uiState.activeCell = { rowIndex: newRowIndex, column: 'width' };
+        this.uiState.inputMode = 'width';
+        this.uiState.selectedRowIndex = null;
+        this._publishStateChange();
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+    }
+
+    _handleDeleteRow() {
+        console.log("AppController handling: userRequestedDeleteRow");
+        const { selectedRowIndex } = this.uiState;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' });
+            return;
         }
-        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        this.quoteService.deleteRow(selectedRowIndex);
+        this.uiState = this.focusService.focusAfterDelete(this.uiState, this.quoteService.getQuoteData());
+        this.uiState.selectedRowIndex = null;
+        this.uiState.isSumOutdated = true;
+        this._publishStateChange();
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+    }
+
+    _handleClearRow() {
+        console.log("AppController handling: userRequestedClearRow");
+        const { selectedRowIndex } = this.uiState;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row to clear.', type: 'error' });
+            return;
+        }
+        this.uiState = this.focusService.focusAfterClear(this.uiState);
+        this.quoteService.clearRow(selectedRowIndex);
+        this.uiState.selectedRowIndex = null;
+        this.uiState.isSumOutdated = true;
         this._publishStateChange();
     }
     
-    // --- 以下為功能正常的函式，保持原樣 ---
-    _handleCalculateAndSum() { /* ... */ }
-    _handleSaveToFile() { /* ... */ }
-    _handleExportCSV() { /* ... */ }
-    _handleFileLoad() { /* ... */ }
-    _handleInsertRow() { /* ... */ }
-    _handleDeleteRow() { /* ... */ }
-    _handleClearRow() { /* ... */ }
-    _startAutoSave() { /* ... */ }
-    _handleAutoSave() { /* ... */ }
+    _startAutoSave() {
+        if (this.autoSaveTimerId) { clearInterval(this.autoSaveTimerId); }
+        this.autoSaveTimerId = setInterval(() => { this._handleAutoSave(); }, AUTOSAVE_INTERVAL_MS);
+        console.log(`Auto-save started. Interval: ${AUTOSAVE_INTERVAL_MS / 1000} seconds.`);
+    }
+
+    _handleAutoSave() {
+        try {
+            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            const hasContent = items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
+            if (hasContent) {
+                const dataToSave = JSON.stringify(this.quoteService.getQuoteData());
+                localStorage.setItem(AUTOSAVE_STORAGE_KEY, dataToSave);
+                console.log('Auto-save successful.');
+            }
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+        }
+    }
 }
