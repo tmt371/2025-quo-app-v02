@@ -46,10 +46,6 @@ html, body {
     top: 0;
     background-color: var(--app-bg-color);
     z-index: 10;
-<<<<<<< HEAD
-=======
-    /* [移除] 移除之前在 thead 上的邊框設定 */
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
 }
 
 .results-table td {
@@ -59,7 +55,6 @@ html, body {
     word-break: break-all;
 }
 
-<<<<<<< HEAD
 /* [修改] 移除之前在 th 上的邊框設定 */
 .results-table th {
     border: 1px solid #ddd;
@@ -73,17 +68,6 @@ html, body {
 .input-display-cell {
     border-top: none; /* 移除原有的上框線以避免衝突 */
     box-shadow: inset 0 6px 0 0 var(--header-border-color);
-=======
-/* [修改] 將加粗上框線直接應用於所有 th 儲存格 */
-.results-table th {
-    border: 1px solid #ddd;
-    border-top: 6px solid var(--header-border-color);
-    padding: 8px;
-    text-align: center;
-    word-break: break-all;
-    /* 補償因邊框增加的高度 */
-    padding-top: 3px;
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
 }
 
 .results-table .col-sequence { width: 40px; }
@@ -94,15 +78,11 @@ html, body {
 
 .results-table th.input-display-header {
     padding: 0;
-<<<<<<< HEAD
     border: none;
     /* [修改] 移除之前不一致的邊框設定 */
     border-left: 1px solid #ddd;
     border-right: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
-=======
-    border: none; /* 移除th的邊框，由內部的input自行控制 */
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
 }
 
 .input-display-cell {
@@ -113,15 +93,8 @@ html, body {
     height: 100%;
     width: 100%;
     box-sizing: border-box;
-    /* [修改] 讓 input 的邊框與其他 th 一致 */
-    border: 1px solid #ddd;
-    border-top: 6px solid var(--header-border-color);
     padding: 8px;
-<<<<<<< HEAD
     border: none; /* 移除 input 自身的所有邊框，由父層 th 控制 */
-=======
-    padding-top: 3px;
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
 }
 
 
@@ -144,10 +117,6 @@ html, body {
     flex-shrink: 0;
     background-color: var(--keyboard-bg-color);
     border-top: 1px solid var(--panel-border-color);
-<<<<<<< HEAD
-=======
-    /* [修改] 全面壓縮鍵盤區的垂直 padding */
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
     padding: 38px 15px 8px 15px;
     position: relative;
     transition: all 0.3s ease-in-out;
@@ -158,18 +127,10 @@ html, body {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     grid-template-rows: repeat(4, 1fr);
-<<<<<<< HEAD
-=======
-    /* [修改] 再次縮小按鍵間的間隙 */
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
     gap: 5px;
 }
 
 .virtual-keyboard button {
-<<<<<<< HEAD
-=======
-    /* [修改] 再次縮小按鍵的垂直內邊距 */
->>>>>>> 5930403af754f474f44417feba36895d1ca32480
     padding: 7px 5px;
     font-size: 1.2em;
     cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background-color: #fff;
