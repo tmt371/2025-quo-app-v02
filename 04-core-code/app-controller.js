@@ -7,7 +7,6 @@ const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
 const AUTOSAVE_INTERVAL_MS = 60000;
 
 export class AppController {
-    // [修改] 增加 focusService 依賴
     constructor({ initialState, productFactory, configManager, eventAggregator, quoteService, calculationService, focusService }) {
         this.uiState = JSON.parse(JSON.stringify(initialState.ui));
         this.productFactory = productFactory;
@@ -15,14 +14,13 @@ export class AppController {
         this.eventAggregator = eventAggregator;
         this.quoteService = quoteService;
         this.calculationService = calculationService;
-        this.focusService = focusService; // 儲存 FocusService 的實例
+        this.focusService = focusService;
         this.autoSaveTimerId = null;
-        console.log("AppController (Focus Refactored) Initialized.");
+        console.log("AppController (Validation Fix) Initialized.");
         this.initialize();
     }
 
     initialize() {
-        // ... (事件訂閱維持不變) ...
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('sequenceCellClicked', (data) => this._handleSequenceCellClick(data));
@@ -49,6 +47,34 @@ export class AppController {
     publishInitialState() { this._publishStateChange(); }
     _publishStateChange() { this.eventAggregator.publish('stateChanged', this._getFullState()); }
 
+    _commitValue() {
+        const { inputValue, inputMode, activeCell } = this.uiState; // [修改] 取得 inputMode
+        const value = inputValue === '' ? null : parseInt(inputValue, 10);
+        
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const validationRules = productStrategy.getValidationRules();
+        
+        // [修改] 使用更可靠的 inputMode 來獲取驗證規則
+        const rule = validationRules[inputMode];
+
+        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
+            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
+            this.uiState.inputValue = '';
+            this._publishStateChange();
+            return;
+        }
+
+        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
+        if (changed) {
+            this.uiState.isSumOutdated = true;
+        }
+        
+        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        this._publishStateChange();
+    }
+
+    // --- 以下方法大多維持不變 ---
+
     _handleNumericKeyPress(key) {
         if (!isNaN(parseInt(key))) {
             this.uiState.inputValue += key;
@@ -57,7 +83,6 @@ export class AppController {
             this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
             this._publishStateChange();
         } else if (key === 'W' || key === 'H') {
-            // [修改] 委派任務給 FocusService
             const column = key === 'W' ? 'width' : 'height';
             this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), column);
             this._publishStateChange();
@@ -67,17 +92,15 @@ export class AppController {
     }
 
     _handleMoveActiveCell({ direction }) {
-        // [修改] 委派任務給 FocusService
         this.uiState = this.focusService.moveActiveCell(this.uiState, this.quoteService.getQuoteData(), direction);
         this._publishStateChange();
     }
     
     _handleDeleteRow() {
         const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) { /* ... */ return; }
+        if (selectedRowIndex === null) { return; }
         this.quoteService.deleteRow(selectedRowIndex);
         
-        // [修改] 委派任務給 FocusService
         this.uiState = this.focusService.focusAfterDelete(this.uiState, this.quoteService.getQuoteData());
         this.uiState.selectedRowIndex = null;
         this.uiState.isSumOutdated = true;
@@ -88,44 +111,22 @@ export class AppController {
 
     _handleClearRow() {
         const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) { /* ... */ return; }
+        if (selectedRowIndex === null) { return; }
         
-        // [修改] 委派任務給 FocusService
         this.uiState = this.focusService.focusAfterClear(this.uiState);
         
-        this.quoteService.clearRow(selectedRowIndex); // 仍然需要 quoteService 來清除資料
+        this.quoteService.clearRow(selectedRowIndex);
         
         this.uiState.selectedRowIndex = null;
         this.uiState.isSumOutdated = true;
         this._publishStateChange();
     }
-
-    _commitValue() {
-        const { inputValue, activeCell } = this.uiState;
-        const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
-        const validationRules = productStrategy.getValidationRules();
-        const rule = validationRules[activeCell.column];
-        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
-            /* ... */
-            return;
-        }
-        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
-        if (changed) {
-            this.uiState.isSumOutdated = true;
-        }
-        
-        // [修改] 委派任務給 FocusService
-        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
-        this._publishStateChange();
-    }
     
     _handleInsertRow() {
         const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) { /* ... */ return; }
+        if (selectedRowIndex === null) { return; }
         const newRowIndex = this.quoteService.insertRow(selectedRowIndex);
         
-        // [修改] 焦點管理現在更簡單
         this.uiState.activeCell = { rowIndex: newRowIndex, column: 'width' };
         this.uiState.inputMode = 'width';
         this.uiState.selectedRowIndex = null;
@@ -134,7 +135,6 @@ export class AppController {
         this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
     }
 
-    // --- 以下方法大多維持不變 ---
     _handleCalculateAndSum() {
         const currentQuoteData = this.quoteService.getQuoteData();
         const { updatedQuoteData, firstError } = this.calculationService.calculateAndSum(currentQuoteData);

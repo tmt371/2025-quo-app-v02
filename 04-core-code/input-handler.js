@@ -6,9 +6,9 @@ export class InputHandler {
     }
 
     initialize() {
-        this._setupNumericKeyboard(); // 重構此方法以包含所有新鍵盤按鈕
+        this._setupNumericKeyboard();
         this._setupTableInteraction();
-        this._setupFunctionKeys(); // 移除舊的監聽，保留側邊欄的
+        this._setupFunctionKeys();
         this._setupPanelToggles();
         this._setupFileLoader();
         this._setupPhysicalKeyboard();
@@ -35,8 +35,8 @@ export class InputHandler {
                 switch (event.key.toLowerCase()) {
                     case 'w': keyToPublish = 'W'; break;
                     case 'h': keyToPublish = 'H'; break;
-                    case 't': this.eventAggregator.publish('userRequestedCycleType'); return; // [新增] 't' 鍵觸發 Type
-                    case '$': this.eventAggregator.publish('userRequestedCalculateAndSum'); return; // [新增] '$' 鍵觸發計算
+                    case 't': this.eventAggregator.publish('userRequestedCycleType'); return;
+                    case '$': this.eventAggregator.publish('userRequestedCalculateAndSum'); return;
                     case 'enter': keyToPublish = 'ENT'; event.preventDefault(); break;
                     case 'backspace': keyToPublish = 'DEL'; event.preventDefault(); break;
                     case 'delete': eventToPublish = 'userRequestedClearRow'; break;
@@ -71,22 +71,20 @@ export class InputHandler {
     }
     
     _setupPanelToggles() {
+        // [修改] 只保留數字鍵盤的 toggle 邏輯
         const numericToggle = document.getElementById('panel-toggle');
         if (numericToggle) {
             numericToggle.addEventListener('click', () => {
                 this.eventAggregator.publish('userToggledNumericKeyboard');
             });
         }
-        const functionToggle = document.getElementById('function-panel-toggle');
-        if (functionToggle) {
-            functionToggle.addEventListener('click', () => {
-                this.eventAggregator.publish('userToggledFunctionKeyboard');
-            });
-        }
+        
+        // --- [移除] ---
+        // 關於 function-panel-toggle 的監聽已被移除，
+        // 因為 PanelComponent 現在自己處理這個點擊事件。
     }
 
     _setupFunctionKeys() {
-        // [保留] 側邊功能面板的按鈕監聽
         const insertButton = document.getElementById('key-insert');
         if (insertButton) {
             insertButton.addEventListener('click', () => { this.eventAggregator.publish('userRequestedInsertRow'); });
@@ -116,16 +114,12 @@ export class InputHandler {
                 this.eventAggregator.publish('userRequestedReset');
             });
         }
-
-        // [移除] 所有舊的 batch-keys-grid 按鈕監聽 (key-batch-bo, bo1, sn, price, clear, sum)
     }
     
-    // [重構] 完全重寫此方法以適應新的 5x4 鍵盤
     _setupNumericKeyboard() {
         const keyboard = document.getElementById('numeric-keyboard');
         if (!keyboard) return;
 
-        // 使用一個輔助函數來減少重複程式碼
         const addButtonListener = (id, eventName, data = {}) => {
             const button = document.getElementById(id);
             if (button) {
@@ -135,7 +129,6 @@ export class InputHandler {
             }
         };
 
-        // 數字鍵和操作鍵
         addButtonListener('key-7', 'numericKeyPressed', { key: '7' });
         addButtonListener('key-8', 'numericKeyPressed', { key: '8' });
         addButtonListener('key-9', 'numericKeyPressed', { key: '9' });
@@ -149,14 +142,13 @@ export class InputHandler {
         addButtonListener('key-del', 'numericKeyPressed', { key: 'DEL' });
         addButtonListener('key-enter', 'numericKeyPressed', { key: 'ENT' });
 
-        // 功能鍵
         addButtonListener('key-w', 'numericKeyPressed', { key: 'W' });
         addButtonListener('key-h', 'numericKeyPressed', { key: 'H' });
         
-        // [新增] 新的核心功能鍵事件
-        addButtonListener('key-type', 'userRequestedCycleType'); // 發布新的 Type 循環事件
-        addButtonListener('key-clear', 'userRequestedClearRow'); // C 鍵現在也發布 clear row 事件
-        addButtonListener('key-price', 'userRequestedCalculateAndSum'); // 發布新的複合計算事件
+        addButtonListener('key-type', 'userRequestedCycleType');
+
+        addButtonListener('key-clear', 'userRequestedClearRow');
+        addButtonListener('key-price', 'userRequestedCalculateAndSum');
     }
 
     _setupTableInteraction() {
@@ -167,7 +159,6 @@ export class InputHandler {
                 const isHeader = target.tagName === 'TH';
                 const isCell = target.tagName === 'TD';
                 
-                // [新增] 如果點擊的是表頭中的輸入框，不執行任何操作
                 if (target.id === 'input-display-cell') {
                     return;
                 }
