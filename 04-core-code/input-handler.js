@@ -12,8 +12,6 @@ export class InputHandler {
         this._setupPanelToggles();
         this._setupFileLoader();
         this._setupPhysicalKeyboard();
-        // [移除] 移除上次偵錯用的日誌
-        // console.log("InputHandler Initialized and all listeners are active.");
     }
     
     _setupPhysicalKeyboard() {
@@ -71,7 +69,6 @@ export class InputHandler {
                 event.target.value = '';
             });
         }
-        // [新增] 監聽來自 AppController 的指令，以觸發檔案選擇視窗
         this.eventAggregator.subscribe('triggerFileLoad', () => {
             if (fileLoader) {
                 fileLoader.click();
@@ -103,13 +100,14 @@ export class InputHandler {
         setupButton('key-save', 'userRequestedSave');
         setupButton('key-export', 'userRequestedExportCSV');
         setupButton('key-reset', 'userRequestedReset');
+        
+        // [新增] 為 M-Del 按鈕綁定新的事件
+        setupButton('key-f5', 'userRequestedMultiDeleteMode');
 
-        // [修改] Load 按鈕不再直接觸發 click()，而是發布一個意圖事件
         const loadButton = document.getElementById('key-load');
         if (loadButton) {
             loadButton.addEventListener('click', () => {
                 this.eventAggregator.publish('userRequestedLoad');
-
             });
         }
     }
