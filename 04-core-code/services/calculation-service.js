@@ -12,16 +12,22 @@ export class CalculationService {
     }
 
     /**
-     * Calculates line prices for all valid items and the total sum.
+     * Calculates line prices for all valid items and the total sum using a provided product strategy.
      * Skips items with errors and returns the first error found.
      * @param {object} quoteData The current quote data from QuoteService.
+     * @param {object} productStrategy The specific product strategy to use for calculations.
      * @returns {{updatedQuoteData: object, firstError: object|null}}
      */
-    calculateAndSum(quoteData) {
+    calculateAndSum(quoteData, productStrategy) {
+        if (!productStrategy) {
+            console.error("CalculationService: productStrategy is required for calculateAndSum.");
+            return { quoteData, firstError: { message: "Product strategy not provided." } };
+        }
+
         // Create a deep copy to avoid mutating the original state directly
         const updatedQuoteData = JSON.parse(JSON.stringify(quoteData));
-        const items = updatedQuoteData.rollerBlindItems;
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        // [重構] 不再假設 items 的具體名稱，而是從 strategy 獲取
+        const items = updatedQuoteData.rollerBlindItems; 
         let firstError = null;
 
         items.forEach((item, index) => {

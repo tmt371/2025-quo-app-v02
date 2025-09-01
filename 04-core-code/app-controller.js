@@ -11,6 +11,8 @@ export class AppController {
         this.uiState.isMultiDeleteMode = false;
         this.uiState.multiDeleteSelectedIndexes = new Set();
         
+        this.currentProduct = 'rollerBlind'; 
+
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
@@ -78,7 +80,8 @@ export class AppController {
 
     _handleSequenceCellClick({ rowIndex }) {
         if (this.uiState.isMultiDeleteMode) {
-            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            // --- [重構] 使用新的通用方法 getItems() ---
+            const items = this.quoteService.getItems();
             const isLastRow = rowIndex === items.length - 1;
             const item = items[rowIndex];
             const isRowEmpty = !item.width && !item.height && !item.fabricType;
@@ -107,14 +110,15 @@ export class AppController {
                 return;
             }
             this.quoteService.deleteMultipleRows(indexes);
-            this._handleToggleMultiDeleteMode(); // Call this to gracefully exit the mode
+            this._handleToggleMultiDeleteMode(); 
 
         } else {
             const { selectedRowIndex } = this.uiState;
             if (selectedRowIndex === null) { return; }
             this.quoteService.deleteRow(selectedRowIndex);
 
-            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            // --- [重構] 使用新的通用方法 getItems() ---
+            const items = this.quoteService.getItems();
             this.uiState.selectedRowIndex = null;
             this.uiState.isSumOutdated = true;
             this.uiState.activeCell = { rowIndex: items.length - 1, column: 'width' };
@@ -127,7 +131,8 @@ export class AppController {
         const { selectedRowIndex } = this.uiState;
         if (selectedRowIndex === null) { return; }
         
-        const items = this.quoteService.getQuoteData().rollerBlindItems;
+        // --- [重構] 使用新的通用方法 getItems() ---
+        const items = this.quoteService.getItems();
         const isLastRow = selectedRowIndex === items.length - 1;
         if (isLastRow) {
              this.eventAggregator.publish('showNotification', { message: "Cannot insert after the last row.", type: 'error' });
@@ -165,7 +170,9 @@ export class AppController {
     _commitValue() {
         const { inputValue, inputMode, activeCell } = this.uiState;
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        
+        const productStrategy = this.productFactory.getProductStrategy(this.currentProduct);
+        
         const validationRules = productStrategy.getValidationRules();
         const rule = validationRules[inputMode];
         if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
@@ -254,7 +261,8 @@ export class AppController {
     }
     
     _handleTableCellClick({ rowIndex, column }) {
-        const item = this.quoteService.getQuoteData().rollerBlindItems[rowIndex];
+        // --- [重構] 使用新的通用方法 getItems() ---
+        const item = this.quoteService.getItems()[rowIndex];
         if (!item) return;
         this.uiState.selectedRowIndex = null;
         if (column === 'width' || column === 'height') {
@@ -272,7 +280,8 @@ export class AppController {
     }
     
     _handleCycleType() {
-        const items = this.quoteService.getQuoteData().rollerBlindItems;
+        // --- [重構] 使用新的通用方法 getItems() ---
+        const items = this.quoteService.getItems();
         const eligibleItems = items.filter(item => item.width && item.height);
         if (eligibleItems.length === 0) return;
         const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
@@ -297,7 +306,10 @@ export class AppController {
 
     _handleCalculateAndSum() {
         const currentQuoteData = this.quoteService.getQuoteData();
-        const { updatedQuoteData, firstError } = this.calculationService.calculateAndSum(currentQuoteData);
+        
+        const productStrategy = this.productFactory.getProductStrategy(this.currentProduct);
+        const { updatedQuoteData, firstError } = this.calculationService.calculateAndSum(currentQuoteData, productStrategy);
+
         this.quoteService.quoteData = updatedQuoteData;
         if (firstError) {
             this.uiState.isSumOutdated = true;
@@ -317,7 +329,8 @@ export class AppController {
 
     _handleAutoSave() {
         try {
-            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            // --- [重構] 使用新的通用方法 getItems() ---
+            const items = this.quoteService.getItems();
             const hasContent = items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
             if (hasContent) {
                 const dataToSave = JSON.stringify(this.quoteService.getQuoteData());

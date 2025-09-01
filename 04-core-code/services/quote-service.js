@@ -11,6 +11,11 @@ export class QuoteService {
         // 使用深拷貝確保 QuoteService 擁有獨立的、純淨的資料狀態
         this.quoteData = JSON.parse(JSON.stringify(initialState.quoteData));
         this.productFactory = productFactory;
+
+        const currentProduct = 'rollerBlind'; // 未來此值可由外部傳入
+        this.productStrategy = this.productFactory.getProductStrategy(currentProduct);
+        this.itemListName = `${currentProduct}Items`; // e.g., 'rollerBlindItems'
+
         console.log("QuoteService Initialized.");
     }
 
@@ -19,13 +24,26 @@ export class QuoteService {
     }
 
     /**
+     * [新增] 提供一個通用的、公開的方法來取得當前產品的項目列表
+     * @returns {Array} 當前產品的項目列表
+     */
+    getItems() {
+        return this.quoteData[this.itemListName];
+    }
+    
+    // --- 內部輔助方法，用於動態取得當前產品的項目列表 ---
+    _getItems() {
+        return this.quoteData[this.itemListName];
+    }
+
+    /**
      * Inserts a new row after the specified index.
      * @param {number} selectedIndex The index to insert after.
      * @returns {number} The index of the newly inserted row.
      */
     insertRow(selectedIndex) {
-        const items = this.quoteData.rollerBlindItems;
-        const newItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
+        const items = this._getItems();
+        const newItem = this.productStrategy.getInitialItemData();
         const newRowIndex = selectedIndex + 1;
         items.splice(newRowIndex, 0, newItem);
         return newRowIndex;
@@ -36,24 +54,21 @@ export class QuoteService {
      * @param {number} selectedIndex The index of the row to delete.
      */
     deleteRow(selectedIndex) {
-        const items = this.quoteData.rollerBlindItems;
+        const items = this._getItems();
         const isLastRow = selectedIndex === items.length - 1;
         const item = items[selectedIndex];
         const isRowEmpty = !item.width && !item.height && !item.fabricType;
 
-        // 如果是最後一行且有資料，則只清空
         if (isLastRow && !isRowEmpty) {
             this.clearRow(selectedIndex);
             return;
         }
 
-        // 如果只有一行，則清空
         if (items.length === 1) {
             this.clearRow(selectedIndex);
             return;
         }
 
-        // 其他情況則刪除
         items.splice(selectedIndex, 1);
     }
 
@@ -62,7 +77,7 @@ export class QuoteService {
      * @param {number} selectedIndex The index of the row to clear.
      */
     clearRow(selectedIndex) {
-        const itemToClear = this.quoteData.rollerBlindItems[selectedIndex];
+        const itemToClear = this._getItems()[selectedIndex];
         if (itemToClear) {
             itemToClear.width = null;
             itemToClear.height = null;
@@ -79,14 +94,14 @@ export class QuoteService {
      * @returns {boolean} True if the value was changed, false otherwise.
      */
     updateItemValue(rowIndex, column, value) {
-        const targetItem = this.quoteData.rollerBlindItems[rowIndex];
+        const targetItem = this._getItems()[rowIndex];
         if (!targetItem) return false;
 
         if (targetItem[column] !== value) {
             targetItem[column] = value;
-            targetItem.linePrice = null; // Any change invalidates the price.
+            targetItem.linePrice = null;
             
-            this.consolidateEmptyRows(); // 每次更新後都檢查並清理多餘空行
+            this.consolidateEmptyRows();
             return true;
         }
         return false;
@@ -98,7 +113,7 @@ export class QuoteService {
      * @returns {boolean} True if the type was changed, false otherwise.
      */
     cycleItemType(rowIndex) {
-        const item = this.quoteData.rollerBlindItems[rowIndex];
+        const item = this._getItems()[rowIndex];
         if (!item || (!item.width && !item.height)) return false;
 
         const TYPE_SEQUENCE = ['BO', 'BO1', 'SN'];
@@ -118,9 +133,9 @@ export class QuoteService {
      * Resets the entire quote data to its initial state.
      */
     reset() {
-        const initialItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
+        const initialItem = this.productStrategy.getInitialItemData();
         this.quoteData = {
-            rollerBlindItems: [initialItem],
+            [this.itemListName]: [initialItem],
             summary: { totalSum: null }
         };
     }
@@ -130,18 +145,16 @@ export class QuoteService {
      * @returns {boolean} True if there is data, false otherwise.
      */
     hasData() {
-        const items = this.quoteData.rollerBlindItems;
+        const items = this._getItems();
         if (!items) return false;
-        // True if there is more than one row, or if the single row has content.
         return items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
     }
 
     /**
-     * [新增] Deletes multiple rows based on an array of indexes.
+     * Deletes multiple rows based on an array of indexes.
      * @param {Set<number>} indexesToDelete A Set of row indexes to delete.
      */
     deleteMultipleRows(indexesToDelete) {
-        // 將 Set 轉換為陣列並由大到小排序，確保從後往前刪除，避免索引錯亂
         const sortedIndexes = [...indexesToDelete].sort((a, b) => b - a);
 
         sortedIndexes.forEach(index => {
@@ -152,12 +165,11 @@ export class QuoteService {
     }
 
     /**
-     * [新增] Ensures there is exactly one empty row at the end of the table.
+     * Ensures there is exactly one empty row at the end of the table.
      */
     consolidateEmptyRows() {
-        const items = this.quoteData.rollerBlindItems;
+        const items = this._getItems();
         
-        // 從後往前移除所有連續的空行
         while (items.length > 1) {
             const lastItem = items[items.length - 1];
             const secondLastItem = items[items.length - 2];
@@ -165,17 +177,17 @@ export class QuoteService {
             const isSecondLastItemEmpty = !secondLastItem.width && !secondLastItem.height && !secondLastItem.fabricType;
 
             if (isLastItemEmpty && isSecondLastItemEmpty) {
-                items.pop(); // 移除最後一個多餘的空行
+                items.pop();
             } else {
-                break; // 遇到非空行或只剩一個空行，停止循環
+                break;
             }
         }
 
-        // 確保最後一行總是空的
         const lastItem = items[items.length - 1];
+        if (!lastItem) return;
         const isLastItemEmpty = !lastItem.width && !lastItem.height && !lastItem.fabricType;
         if (!isLastItemEmpty) {
-            const newItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
+            const newItem = this.productStrategy.getInitialItemData();
             items.push(newItem);
         }
     }
