@@ -17,8 +17,10 @@ export class TableComponent {
      * @param {Array} items - The array of rollerBlindItems.
      * @param {object} activeCell - The currently active cell { rowIndex, column }.
      * @param {number|null} selectedRowIndex - The index of the selected row.
+     * @param {boolean} isMultiDeleteMode - Flag for multi-delete mode.
+     * @param {Set<number>} multiDeleteSelectedIndexes - A set of selected row indexes.
      */
-    render(items, activeCell, selectedRowIndex) {
+    render(items, activeCell, selectedRowIndex, isMultiDeleteMode, multiDeleteSelectedIndexes) {
         if (items.length === 0 || (items.length === 1 && !items[0].width && !items[0].height)) {
             this.tbody.innerHTML = `<tr><td colspan="5" style="text-align: left; color: #888;">Enter dimensions to begin...</td></tr>`;
             return;
@@ -26,9 +28,26 @@ export class TableComponent {
 
         const rowsHtml = items.map((item, index) => {
             const isRowActive = index === activeCell.rowIndex;
-            const isSequenceSelected = index === selectedRowIndex;
             
-            const sequenceCellClass = isSequenceSelected ? 'selected-row-highlight' : '';
+            // --- [重構] 項次欄的 class 邏輯 ---
+            let sequenceCellClass = '';
+            const isLastRow = index === items.length - 1;
+            const isRowEmpty = !item.width && !item.height && !item.fabricType;
+
+            if (isMultiDeleteMode) {
+                // 在多選模式下
+                if (isLastRow && isRowEmpty) {
+                    sequenceCellClass = 'selection-disabled'; // 最後的空行不可選
+                } else if (multiDeleteSelectedIndexes.has(index)) {
+                    sequenceCellClass = 'multi-selected-row'; // 已被多選的行
+                }
+            } else {
+                // 在單選模式下
+                if (index === selectedRowIndex) {
+                    sequenceCellClass = 'selected-row-highlight'; // 單選高亮
+                }
+            }
+
             const wCellClass = (isRowActive && activeCell.column === 'width') ? 'active-input-cell' : '';
             const hCellClass = (isRowActive && activeCell.column === 'height') ? 'active-input-cell' : '';
             const typeCellClass = (isRowActive && activeCell.column === 'TYPE') ? 'active-input-cell' : '';

@@ -37,13 +37,24 @@ export class QuoteService {
      */
     deleteRow(selectedIndex) {
         const items = this.quoteData.rollerBlindItems;
-        if (items.length > 1) {
-            items.splice(selectedIndex, 1);
-        } else {
-            // If it's the last row, just clear it instead of removing it.
-            const initialItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
-            items[0] = initialItem;
+        const isLastRow = selectedIndex === items.length - 1;
+        const item = items[selectedIndex];
+        const isRowEmpty = !item.width && !item.height && !item.fabricType;
+
+        // 如果是最後一行且有資料，則只清空
+        if (isLastRow && !isRowEmpty) {
+            this.clearRow(selectedIndex);
+            return;
         }
+
+        // 如果只有一行，則清空
+        if (items.length === 1) {
+            this.clearRow(selectedIndex);
+            return;
+        }
+
+        // 其他情況則刪除
+        items.splice(selectedIndex, 1);
     }
 
     /**
@@ -75,11 +86,7 @@ export class QuoteService {
             targetItem[column] = value;
             targetItem.linePrice = null; // Any change invalidates the price.
             
-            // Auto-add a new row if the last row is being edited.
-            if (rowIndex === this.quoteData.rollerBlindItems.length - 1 && (targetItem.width || targetItem.height)) {
-                const newItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
-                this.quoteData.rollerBlindItems.push(newItem);
-            }
+            this.consolidateEmptyRows(); // 每次更新後都檢查並清理多餘空行
             return true;
         }
         return false;
@@ -119,7 +126,7 @@ export class QuoteService {
     }
 
     /**
-     * [新增] Checks if the current quote has any meaningful data.
+     * Checks if the current quote has any meaningful data.
      * @returns {boolean} True if there is data, false otherwise.
      */
     hasData() {
@@ -127,5 +134,49 @@ export class QuoteService {
         if (!items) return false;
         // True if there is more than one row, or if the single row has content.
         return items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
+    }
+
+    /**
+     * [新增] Deletes multiple rows based on an array of indexes.
+     * @param {Set<number>} indexesToDelete A Set of row indexes to delete.
+     */
+    deleteMultipleRows(indexesToDelete) {
+        // 將 Set 轉換為陣列並由大到小排序，確保從後往前刪除，避免索引錯亂
+        const sortedIndexes = [...indexesToDelete].sort((a, b) => b - a);
+
+        sortedIndexes.forEach(index => {
+            this.deleteRow(index);
+        });
+
+        this.consolidateEmptyRows();
+    }
+
+    /**
+     * [新增] Ensures there is exactly one empty row at the end of the table.
+     */
+    consolidateEmptyRows() {
+        const items = this.quoteData.rollerBlindItems;
+        
+        // 從後往前移除所有連續的空行
+        while (items.length > 1) {
+            const lastItem = items[items.length - 1];
+            const secondLastItem = items[items.length - 2];
+            const isLastItemEmpty = !lastItem.width && !lastItem.height && !lastItem.fabricType;
+            const isSecondLastItemEmpty = !secondLastItem.width && !secondLastItem.height && !secondLastItem.fabricType;
+
+            if (isLastItemEmpty && isSecondLastItemEmpty) {
+                items.pop(); // 移除最後一個多餘的空行
+            } else {
+                break; // 遇到非空行或只剩一個空行，停止循環
+            }
+        }
+
+        // 確保最後一行總是空的
+        const lastItem = items[items.length - 1];
+        const isLastItemEmpty = !lastItem.width && !lastItem.height && !lastItem.fabricType;
+        if (!isLastItemEmpty) {
+            const newItem = this.productFactory.getProductStrategy('rollerBlind').getInitialItemData();
+            items.push(newItem);
+        }
     }
 }
