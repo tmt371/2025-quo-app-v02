@@ -8,6 +8,9 @@ const AUTOSAVE_INTERVAL_MS = 60000;
 export class AppController {
     constructor({ initialState, productFactory, configManager, eventAggregator, quoteService, calculationService, focusService, fileService }) {
         this.uiState = JSON.parse(JSON.stringify(initialState.ui));
+        this.uiState.isMultiDeleteMode = false;
+        this.uiState.multiDeleteSelectedIndexes = new Set();
+        
         this.productFactory = productFactory;
         this.configManager = configManager;
         this.eventAggregator = eventAggregator;
@@ -16,12 +19,11 @@ export class AppController {
         this.focusService = focusService;
         this.fileService = fileService;
         this.autoSaveTimerId = null;
-        console.log("AppController (Complete & Fixed rev.22) Initialized.");
+        console.log("AppController (Complete & Fixed rev.24) Initialized.");
         this.initialize();
     }
 
     initialize() {
-        // [修正] 補全所有被遺漏的事件訂閱
         this.eventAggregator.subscribe('numericKeyPressed', (data) => this._handleNumericKeyPress(data.key));
         this.eventAggregator.subscribe('tableCellClicked', (data) => this._handleTableCellClick(data));
         this.eventAggregator.subscribe('sequenceCellClicked', (data) => this._handleSequenceCellClick(data));
@@ -38,6 +40,7 @@ export class AppController {
         this.eventAggregator.subscribe('userRequestedLoad', () => this._handleUserRequestedLoad());
         this.eventAggregator.subscribe('userChoseSaveThenLoad', () => this._handleSaveThenLoad());
         this.eventAggregator.subscribe('userChoseLoadDirectly', () => this._handleLoadDirectly());
+        this.eventAggregator.subscribe('userRequestedMultiDeleteMode', () => this._handleToggleMultiDeleteMode());
         
         this._startAutoSave();
     }
@@ -54,6 +57,131 @@ export class AppController {
         this.eventAggregator.publish('stateChanged', this._getFullState());
     }
 
+    _handleToggleMultiDeleteMode() {
+        const isEnteringMode = !this.uiState.isMultiDeleteMode;
+
+        if (isEnteringMode) {
+            this.uiState.isMultiDeleteMode = true;
+            this.uiState.multiDeleteSelectedIndexes.clear();
+            if (this.uiState.selectedRowIndex !== null) {
+                this.uiState.multiDeleteSelectedIndexes.add(this.uiState.selectedRowIndex);
+            }
+            this.uiState.selectedRowIndex = null;
+        } else {
+            this.uiState.isMultiDeleteMode = false;
+            this.uiState.multiDeleteSelectedIndexes.clear();
+            this.uiState.selectedRowIndex = null;
+            this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), 'width');
+        }
+        this._publishStateChange();
+    }
+
+    _handleSequenceCellClick({ rowIndex }) {
+        if (this.uiState.isMultiDeleteMode) {
+            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            const isLastRow = rowIndex === items.length - 1;
+            const item = items[rowIndex];
+            const isRowEmpty = !item.width && !item.height && !item.fabricType;
+
+            if (isLastRow && isRowEmpty) {
+                this.eventAggregator.publish('showNotification', { message: "Cannot select the final empty row.", type: 'error' });
+                return;
+            }
+
+            if (this.uiState.multiDeleteSelectedIndexes.has(rowIndex)) {
+                this.uiState.multiDeleteSelectedIndexes.delete(rowIndex);
+            } else {
+                this.uiState.multiDeleteSelectedIndexes.add(rowIndex);
+            }
+        } else {
+            this.uiState.selectedRowIndex = (this.uiState.selectedRowIndex === rowIndex) ? null : rowIndex;
+        }
+        this._publishStateChange();
+    }
+    
+    _handleDeleteRow() {
+        if (this.uiState.isMultiDeleteMode) {
+            const indexes = this.uiState.multiDeleteSelectedIndexes;
+            if (indexes.size === 0) {
+                this.eventAggregator.publish('showNotification', { message: 'Please select rows to delete.' });
+                return;
+            }
+            this.quoteService.deleteMultipleRows(indexes);
+            this._handleToggleMultiDeleteMode(); // Call this to gracefully exit the mode
+
+        } else {
+            const { selectedRowIndex } = this.uiState;
+            if (selectedRowIndex === null) { return; }
+            this.quoteService.deleteRow(selectedRowIndex);
+
+            const items = this.quoteService.getQuoteData().rollerBlindItems;
+            this.uiState.selectedRowIndex = null;
+            this.uiState.isSumOutdated = true;
+            this.uiState.activeCell = { rowIndex: items.length - 1, column: 'width' };
+            this._publishStateChange();
+            this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+        }
+    }
+    
+    _handleInsertRow() {
+        const { selectedRowIndex } = this.uiState;
+        if (selectedRowIndex === null) { return; }
+        
+        const items = this.quoteService.getQuoteData().rollerBlindItems;
+        const isLastRow = selectedRowIndex === items.length - 1;
+        if (isLastRow) {
+             this.eventAggregator.publish('showNotification', { message: "Cannot insert after the last row.", type: 'error' });
+             return;
+        }
+        const nextItem = items[selectedRowIndex + 1];
+        const isNextRowEmpty = !nextItem.width && !nextItem.height && !nextItem.fabricType;
+        if (isNextRowEmpty) {
+            this.eventAggregator.publish('showNotification', { message: "Cannot insert before an empty row.", type: 'error' });
+            return;
+        }
+
+        const newRowIndex = this.quoteService.insertRow(selectedRowIndex);
+        this.uiState.activeCell = { rowIndex: newRowIndex, column: 'width' };
+        this.uiState.inputMode = 'width';
+        this.uiState.selectedRowIndex = null;
+        this._publishStateChange();
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+    }
+
+    _handleNumericKeyPress(key) {
+        if (!isNaN(parseInt(key))) {
+            this.uiState.inputValue += key;
+        } else if (key === 'DEL') {
+            this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
+        } else if (key === 'W' || key === 'H') {
+            this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), key === 'W' ? 'width' : 'height');
+        } else if (key === 'ENT') {
+            this._commitValue();
+            return;
+        }
+        this._publishStateChange();
+    }
+
+    _commitValue() {
+        const { inputValue, inputMode, activeCell } = this.uiState;
+        const value = inputValue === '' ? null : parseInt(inputValue, 10);
+        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
+        const validationRules = productStrategy.getValidationRules();
+        const rule = validationRules[inputMode];
+        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
+            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
+            this.uiState.inputValue = '';
+            this._publishStateChange();
+            return;
+        }
+        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
+        if (changed) {
+            this.uiState.isSumOutdated = true;
+        }
+        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        this._publishStateChange();
+    }
+    
     _handleUserRequestedLoad() {
         if (this.quoteService.hasData()) {
             this.eventAggregator.publish('showLoadConfirmationDialog');
@@ -106,41 +234,20 @@ export class AppController {
             this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' });
         }
     }
-
-    _handleNumericKeyPress(key) {
-        if (!isNaN(parseInt(key))) {
-            this.uiState.inputValue += key;
-        } else if (key === 'DEL') {
-            this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
-        } else if (key === 'W' || key === 'H') {
-            this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), key === 'W' ? 'width' : 'height');
-        } else if (key === 'ENT') {
-            this._commitValue();
-            return; // _commitValue handles its own publish
-        }
-        this._publishStateChange();
-    }
-
-    _commitValue() {
-        const { inputValue, inputMode, activeCell } = this.uiState;
-        const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        const productStrategy = this.productFactory.getProductStrategy('rollerBlind');
-        const validationRules = productStrategy.getValidationRules();
-        const rule = validationRules[inputMode];
-        if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
-            this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
-            this.uiState.inputValue = '';
-            this._publishStateChange();
+    
+    _handleClearRow() {
+        const { selectedRowIndex } = this.uiState;
+        if (selectedRowIndex === null) {
+            this.eventAggregator.publish('showNotification', { message: 'Please select a row to clear.', type: 'error' });
             return;
         }
-        const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
-        if (changed) {
-            this.uiState.isSumOutdated = true;
-        }
-        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        this.uiState = this.focusService.focusAfterClear(this.uiState);
+        this.quoteService.clearRow(selectedRowIndex);
+        this.uiState.selectedRowIndex = null;
+        this.uiState.isSumOutdated = true;
         this._publishStateChange();
     }
-
+    
     _handleMoveActiveCell({ direction }) {
         this.uiState = this.focusService.moveActiveCell(this.uiState, this.quoteService.getQuoteData(), direction);
         this._publishStateChange();
@@ -164,11 +271,6 @@ export class AppController {
         this._publishStateChange();
     }
     
-    _handleSequenceCellClick({ rowIndex }) {
-        this.uiState.selectedRowIndex = (this.uiState.selectedRowIndex === rowIndex) ? null : rowIndex;
-        this._publishStateChange();
-    }
-
     _handleCycleType() {
         const items = this.quoteService.getQuoteData().rollerBlindItems;
         const eligibleItems = items.filter(item => item.width && item.height);
@@ -208,51 +310,9 @@ export class AppController {
         this._publishStateChange();
     }
 
-    _handleInsertRow() {
-        const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) {
-            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before inserting.' });
-            return;
-        }
-        const newRowIndex = this.quoteService.insertRow(selectedRowIndex);
-        this.uiState.activeCell = { rowIndex: newRowIndex, column: 'width' };
-        this.uiState.inputMode = 'width';
-        this.uiState.selectedRowIndex = null;
-        this._publishStateChange();
-        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
-    }
-
-    _handleDeleteRow() {
-        const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) {
-            this.eventAggregator.publish('showNotification', { message: 'Please select a row by clicking its number before deleting.' });
-            return;
-        }
-        this.quoteService.deleteRow(selectedRowIndex);
-        this.uiState = this.focusService.focusAfterDelete(this.uiState, this.quoteService.getQuoteData());
-        this.uiState.selectedRowIndex = null;
-        this.uiState.isSumOutdated = true;
-        this._publishStateChange();
-        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
-    }
-
-    _handleClearRow() {
-        const { selectedRowIndex } = this.uiState;
-        if (selectedRowIndex === null) {
-            this.eventAggregator.publish('showNotification', { message: 'Please select a row to clear.', type: 'error' });
-            return;
-        }
-        this.uiState = this.focusService.focusAfterClear(this.uiState);
-        this.quoteService.clearRow(selectedRowIndex);
-        this.uiState.selectedRowIndex = null;
-        this.uiState.isSumOutdated = true;
-        this._publishStateChange();
-    }
-    
     _startAutoSave() {
         if (this.autoSaveTimerId) { clearInterval(this.autoSaveTimerId); }
         this.autoSaveTimerId = setInterval(() => { this._handleAutoSave(); }, AUTOSAVE_INTERVAL_MS);
-        console.log(`Auto-save started. Interval: ${AUTOSAVE_INTERVAL_MS / 1000} seconds.`);
     }
 
     _handleAutoSave() {
