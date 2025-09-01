@@ -57,12 +57,8 @@ export class UIManager {
 
     render(state) {
         this.headerComponent.render(state.ui.inputValue);
-
-        // --- [重構] 直接將整個 state 物件傳遞給 TableComponent ---
         this.tableComponent.render(state);
-        
         this.summaryComponent.render(state.quoteData.summary, state.ui.isSumOutdated);
-        
         this._updateButtonStates(state);
         this._scrollToActiveCell(state);
     }
@@ -104,7 +100,8 @@ export class UIManager {
         if (this.deleteButton) this.deleteButton.disabled = deleteDisabled;
         
         // --- M-Del Button Logic ---
-        let mDelDisabled = !isSingleRowSelected;
+        // [錯誤修正] M-Del 鍵應在「已單選」或「已進入多重刪除模式」時保持啟用
+        const mDelDisabled = !isSingleRowSelected && !isMultiDeleteMode;
         if (this.mDelButton) {
             this.mDelButton.disabled = mDelDisabled;
             this.mDelButton.style.backgroundColor = isMultiDeleteMode ? '#f5c6cb' : '';
