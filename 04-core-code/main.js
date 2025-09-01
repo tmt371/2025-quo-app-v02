@@ -12,8 +12,8 @@ import { ProductFactory } from './strategies/product-factory.js';
 import { QuoteService } from './services/quote-service.js';
 import { CalculationService } from './services/calculation-service.js';
 import { FocusService } from './services/focus-service.js';
-// --- [新增] 引入我們新的 FileService ---
 import { FileService } from './services/file-service.js';
+import { UIService } from './services/ui-service.js';
 
 
 const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
@@ -45,8 +45,6 @@ class App {
         
         const productFactory = new ProductFactory();
 
-        // --- [重構] 按照新的架構順序實例化 ---
-
         // 1. 實例化所有獨立的 Service
         const quoteService = new QuoteService({
             initialState: startingState,
@@ -58,20 +56,26 @@ class App {
             configManager: this.configManager
         });
 
-        const focusService = new FocusService();
-        
-        const fileService = new FileService(); // [新增] 實例化 FileService
+        const fileService = new FileService();
+
+        const uiService = new UIService(startingState.ui);
+
+        // --- [重構] 將 uiService 和 quoteService 注入到 FocusService ---
+        const focusService = new FocusService({
+            uiService: uiService,
+            quoteService: quoteService
+        });
 
         // 2. 實例化 AppController，並注入所有它需要的 Service
         this.appController = new AppController({
-            initialState: startingState,
             productFactory: productFactory,
             configManager: this.configManager,
             eventAggregator: this.eventAggregator,
             quoteService: quoteService,
             calculationService: calculationService,
             focusService: focusService,
-            fileService: fileService // [新增] 注入 FileService
+            fileService: fileService,
+            uiService: uiService
         });
         
         // 3. 實例化 UIManager
@@ -82,7 +86,7 @@ class App {
     }
 
     async run() {
-        console.log("Application starting with fully refactored architecture (FileService integrated)...");
+        console.log("Application starting with UI Service architecture...");
         
         await this.configManager.initialize();
 

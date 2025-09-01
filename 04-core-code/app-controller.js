@@ -6,11 +6,7 @@ const AUTOSAVE_STORAGE_KEY = 'quoteAutoSaveData';
 const AUTOSAVE_INTERVAL_MS = 60000;
 
 export class AppController {
-    constructor({ initialState, productFactory, configManager, eventAggregator, quoteService, calculationService, focusService, fileService }) {
-        this.uiState = JSON.parse(JSON.stringify(initialState.ui));
-        this.uiState.isMultiDeleteMode = false;
-        this.uiState.multiDeleteSelectedIndexes = new Set();
-        
+    constructor({ productFactory, configManager, eventAggregator, quoteService, calculationService, focusService, fileService, uiService }) {
         this.currentProduct = 'rollerBlind'; 
 
         this.productFactory = productFactory;
@@ -20,8 +16,10 @@ export class AppController {
         this.calculationService = calculationService;
         this.focusService = focusService;
         this.fileService = fileService;
+        this.uiService = uiService;
         this.autoSaveTimerId = null;
-        console.log("AppController (Complete & Fixed rev.24) Initialized.");
+
+        console.log("AppController (Refactored with UIService) Initialized.");
         this.initialize();
     }
 
@@ -36,7 +34,7 @@ export class AppController {
         this.eventAggregator.subscribe('userRequestedExportCSV', () => this._handleExportCSV());
         this.eventAggregator.subscribe('userRequestedReset', () => this._handleReset());
         this.eventAggregator.subscribe('userRequestedClearRow', () => this._handleClearRow());
-        this.eventAggregator.subscribe('userMovedActiveCell', (data) => this._handleMoveActiveCell(data));
+        this.eventAggregator.subscribe('userMovedActiveCell', (data) => this._handleMoveActiveCell(data.direction));
         this.eventAggregator.subscribe('userRequestedCycleType', () => this._handleCycleType());
         this.eventAggregator.subscribe('userRequestedCalculateAndSum', () => this._handleCalculateAndSum());
         this.eventAggregator.subscribe('userRequestedLoad', () => this._handleUserRequestedLoad());
@@ -49,7 +47,7 @@ export class AppController {
     
     _getFullState() {
         return {
-            ui: this.uiState,
+            ui: this.uiService.getState(),
             quoteData: this.quoteService.getQuoteData()
         };
     }
@@ -60,78 +58,58 @@ export class AppController {
     }
 
     _handleToggleMultiDeleteMode() {
-        const isEnteringMode = !this.uiState.isMultiDeleteMode;
-
-        if (isEnteringMode) {
-            this.uiState.isMultiDeleteMode = true;
-            this.uiState.multiDeleteSelectedIndexes.clear();
-            if (this.uiState.selectedRowIndex !== null) {
-                this.uiState.multiDeleteSelectedIndexes.add(this.uiState.selectedRowIndex);
-            }
-            this.uiState.selectedRowIndex = null;
-        } else {
-            this.uiState.isMultiDeleteMode = false;
-            this.uiState.multiDeleteSelectedIndexes.clear();
-            this.uiState.selectedRowIndex = null;
-            this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), 'width');
+        const isEnteringMode = this.uiService.toggleMultiDeleteMode();
+        if (!isEnteringMode) {
+            // --- [重構] 直接呼叫 focusService 的簡潔方法 ---
+            this.focusService.focusFirstEmptyCell('width');
         }
         this._publishStateChange();
     }
 
     _handleSequenceCellClick({ rowIndex }) {
-        if (this.uiState.isMultiDeleteMode) {
-            // --- [重構] 使用新的通用方法 getItems() ---
+        if (this.uiService.getState().isMultiDeleteMode) {
             const items = this.quoteService.getItems();
-            const isLastRow = rowIndex === items.length - 1;
             const item = items[rowIndex];
-            const isRowEmpty = !item.width && !item.height && !item.fabricType;
+            const isLastRowEmpty = (rowIndex === items.length - 1) && (!item.width && !item.height);
 
-            if (isLastRow && isRowEmpty) {
+            if (isLastRowEmpty) {
                 this.eventAggregator.publish('showNotification', { message: "Cannot select the final empty row.", type: 'error' });
                 return;
             }
-
-            if (this.uiState.multiDeleteSelectedIndexes.has(rowIndex)) {
-                this.uiState.multiDeleteSelectedIndexes.delete(rowIndex);
-            } else {
-                this.uiState.multiDeleteSelectedIndexes.add(rowIndex);
-            }
+            this.uiService.toggleMultiDeleteSelection(rowIndex);
         } else {
-            this.uiState.selectedRowIndex = (this.uiState.selectedRowIndex === rowIndex) ? null : rowIndex;
+            this.uiService.toggleRowSelection(rowIndex);
         }
         this._publishStateChange();
     }
     
     _handleDeleteRow() {
-        if (this.uiState.isMultiDeleteMode) {
-            const indexes = this.uiState.multiDeleteSelectedIndexes;
-            if (indexes.size === 0) {
+        const { isMultiDeleteMode, multiDeleteSelectedIndexes, selectedRowIndex } = this.uiService.getState();
+
+        if (isMultiDeleteMode) {
+            if (multiDeleteSelectedIndexes.size === 0) {
                 this.eventAggregator.publish('showNotification', { message: 'Please select rows to delete.' });
                 return;
             }
-            this.quoteService.deleteMultipleRows(indexes);
-            this._handleToggleMultiDeleteMode(); 
-
+            this.quoteService.deleteMultipleRows(multiDeleteSelectedIndexes);
+            this.uiService.toggleMultiDeleteMode();
+            this.focusService.focusFirstEmptyCell('width');
         } else {
-            const { selectedRowIndex } = this.uiState;
             if (selectedRowIndex === null) { return; }
             this.quoteService.deleteRow(selectedRowIndex);
-
-            // --- [重構] 使用新的通用方法 getItems() ---
-            const items = this.quoteService.getItems();
-            this.uiState.selectedRowIndex = null;
-            this.uiState.isSumOutdated = true;
-            this.uiState.activeCell = { rowIndex: items.length - 1, column: 'width' };
-            this._publishStateChange();
-            this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
+            this.uiService.clearRowSelection();
+            this.uiService.setSumOutdated(true);
+            // --- [重構] 使用 focusService 處理刪除後的焦點 ---
+            this.focusService.focusAfterDelete();
         }
+        this._publishStateChange();
+        this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
     }
     
     _handleInsertRow() {
-        const { selectedRowIndex } = this.uiState;
+        const { selectedRowIndex } = this.uiService.getState();
         if (selectedRowIndex === null) { return; }
         
-        // --- [重構] 使用新的通用方法 getItems() ---
         const items = this.quoteService.getItems();
         const isLastRow = selectedRowIndex === items.length - 1;
         if (isLastRow) {
@@ -146,20 +124,20 @@ export class AppController {
         }
 
         const newRowIndex = this.quoteService.insertRow(selectedRowIndex);
-        this.uiState.activeCell = { rowIndex: newRowIndex, column: 'width' };
-        this.uiState.inputMode = 'width';
-        this.uiState.selectedRowIndex = null;
+        this.uiService.setActiveCell(newRowIndex, 'width');
+        this.uiService.clearRowSelection();
         this._publishStateChange();
         this.eventAggregator.publish('operationSuccessfulAutoHidePanel');
     }
 
     _handleNumericKeyPress(key) {
         if (!isNaN(parseInt(key))) {
-            this.uiState.inputValue += key;
+            this.uiService.appendInputValue(key);
         } else if (key === 'DEL') {
-            this.uiState.inputValue = this.uiState.inputValue.slice(0, -1);
+            this.uiService.deleteLastInputChar();
         } else if (key === 'W' || key === 'H') {
-            this.uiState = this.focusService.focusFirstEmptyCell(this.uiState, this.quoteService.getQuoteData(), key === 'W' ? 'width' : 'height');
+            // --- [重構] 直接呼叫 focusService 的簡潔方法 ---
+            this.focusService.focusFirstEmptyCell(key === 'W' ? 'width' : 'height');
         } else if (key === 'ENT') {
             this._commitValue();
             return;
@@ -168,24 +146,26 @@ export class AppController {
     }
 
     _commitValue() {
-        const { inputValue, inputMode, activeCell } = this.uiState;
+        const { inputValue, inputMode, activeCell } = this.uiService.getState();
         const value = inputValue === '' ? null : parseInt(inputValue, 10);
-        
         const productStrategy = this.productFactory.getProductStrategy(this.currentProduct);
-        
         const validationRules = productStrategy.getValidationRules();
         const rule = validationRules[inputMode];
+
         if (rule && value !== null && (isNaN(value) || value < rule.min || value > rule.max)) {
             this.eventAggregator.publish('showNotification', { message: `${rule.name} must be between ${rule.min} and ${rule.max}.`, type: 'error' });
-            this.uiState.inputValue = '';
+            this.uiService.clearInputValue();
             this._publishStateChange();
             return;
         }
+
         const changed = this.quoteService.updateItemValue(activeCell.rowIndex, activeCell.column, value);
         if (changed) {
-            this.uiState.isSumOutdated = true;
+            this.uiService.setSumOutdated(true);
         }
-        this.uiState = this.focusService.focusAfterCommit(this.uiState, this.quoteService.getQuoteData());
+        
+        // --- [重構] 直接呼叫 focusService 的簡潔方法 ---
+        this.focusService.focusAfterCommit();
         this._publishStateChange();
     }
     
@@ -217,8 +197,8 @@ export class AppController {
         const result = this.fileService.parseFileContent(fileName, content);
         if (result.success) {
             this.quoteService.quoteData = result.data;
-            this.uiState = JSON.parse(JSON.stringify(initialState.ui));
-            this.uiState.isSumOutdated = true;
+            this.uiService.reset(initialState.ui);
+            this.uiService.setSumOutdated(true);
             this._publishStateChange();
             this.eventAggregator.publish('showNotification', { message: result.message });
         } else {
@@ -236,51 +216,50 @@ export class AppController {
     _handleReset() {
         if (window.confirm("This will clear all data. Are you sure?")) {
             this.quoteService.reset();
-            this.uiState = JSON.parse(JSON.stringify(initialState.ui)); 
+            this.uiService.reset(initialState.ui); 
             this._publishStateChange();
             this.eventAggregator.publish('showNotification', { message: 'Quote has been reset.' });
         }
     }
     
     _handleClearRow() {
-        const { selectedRowIndex } = this.uiState;
+        const { selectedRowIndex } = this.uiService.getState();
         if (selectedRowIndex === null) {
             this.eventAggregator.publish('showNotification', { message: 'Please select a row to clear.', type: 'error' });
             return;
         }
-        this.uiState = this.focusService.focusAfterClear(this.uiState);
+        // --- [重構] 直接呼叫 focusService 的簡潔方法 ---
+        this.focusService.focusAfterClear();
         this.quoteService.clearRow(selectedRowIndex);
-        this.uiState.selectedRowIndex = null;
-        this.uiState.isSumOutdated = true;
+        this.uiService.clearRowSelection();
+        this.uiService.setSumOutdated(true);
         this._publishStateChange();
     }
     
-    _handleMoveActiveCell({ direction }) {
-        this.uiState = this.focusService.moveActiveCell(this.uiState, this.quoteService.getQuoteData(), direction);
+    _handleMoveActiveCell(direction) {
+        // --- [重構] 直接呼叫 focusService 的簡潔方法 ---
+        this.focusService.moveActiveCell(direction);
         this._publishStateChange();
     }
     
     _handleTableCellClick({ rowIndex, column }) {
-        // --- [重構] 使用新的通用方法 getItems() ---
         const item = this.quoteService.getItems()[rowIndex];
         if (!item) return;
-        this.uiState.selectedRowIndex = null;
+        this.uiService.clearRowSelection();
         if (column === 'width' || column === 'height') {
-            this.uiState.activeCell = { rowIndex, column };
-            this.uiState.inputMode = column;
-            this.uiState.inputValue = String(item[column] || '');
+            this.uiService.setActiveCell(rowIndex, column);
+            this.uiService.setInputValue(item[column]);
         } else if (column === 'TYPE') {
-            this.uiState.activeCell = { rowIndex, column };
+            this.uiService.setActiveCell(rowIndex, column);
             const changed = this.quoteService.cycleItemType(rowIndex);
             if(changed) {
-                this.uiState.isSumOutdated = true;
+                this.uiService.setSumOutdated(true);
             }
         }
         this._publishStateChange();
     }
     
     _handleCycleType() {
-        // --- [重構] 使用新的通用方法 getItems() ---
         const items = this.quoteService.getItems();
         const eligibleItems = items.filter(item => item.width && item.height);
         if (eligibleItems.length === 0) return;
@@ -299,37 +278,35 @@ export class AppController {
             }
         });
         if (changed) {
-            this.uiState.isSumOutdated = true;
+            this.uiService.setSumOutdated(true);
             this._publishStateChange();
         }
     }
 
     _handleCalculateAndSum() {
         const currentQuoteData = this.quoteService.getQuoteData();
-        
         const productStrategy = this.productFactory.getProductStrategy(this.currentProduct);
         const { updatedQuoteData, firstError } = this.calculationService.calculateAndSum(currentQuoteData, productStrategy);
 
         this.quoteService.quoteData = updatedQuoteData;
         if (firstError) {
-            this.uiState.isSumOutdated = true;
+            this.uiService.setSumOutdated(true);
             this._publishStateChange();
             this.eventAggregator.publish('showNotification', { message: firstError.message, type: 'error' });
-            this.uiState.activeCell = { rowIndex: firstError.rowIndex, column: firstError.column };
+            this.uiService.setActiveCell(firstError.rowIndex, firstError.column);
         } else {
-            this.uiState.isSumOutdated = false;
+            this.uiService.setSumOutdated(false);
         }
         this._publishStateChange();
     }
 
     _startAutoSave() {
         if (this.autoSaveTimerId) { clearInterval(this.autoSaveTimerId); }
-        this.autoSaveTimerId = setInterval(() => { this._handleAutoSave(); }, AUTOSAVE_INTERVAL_MS);
+        this.autoSaveTimerId = setInterval(() => this._handleAutoSave(), AUTOSAVE_INTERVAL_MS);
     }
 
     _handleAutoSave() {
         try {
-            // --- [重構] 使用新的通用方法 getItems() ---
             const items = this.quoteService.getItems();
             const hasContent = items.length > 1 || (items.length === 1 && (items[0].width || items[0].height));
             if (hasContent) {

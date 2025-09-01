@@ -4,77 +4,65 @@
  * @fileoverview Service for managing input focus and active cell logic.
  */
 export class FocusService {
-    constructor() {
-        console.log("FocusService Initialized.");
+    /**
+     * @param {object} dependencies - The service dependencies.
+     * @param {UIService} dependencies.uiService - The UI state management service.
+     * @param {QuoteService} dependencies.quoteService - The quote data management service.
+     */
+    constructor({ uiService, quoteService }) {
+        this.uiService = uiService;
+        this.quoteService = quoteService;
+        console.log("FocusService (Context-Aware) Initialized.");
     }
 
     /**
-     * Calculates the new active cell when W or H key is pressed.
-     * Finds the first empty cell in the specified column.
-     * @param {object} uiState The current UI state.
-     * @param {object} quoteData The current quote data.
-     * @param {string} column The column to focus ('width' or 'height').
-     * @returns {object} The updated UI state.
+     * Finds the first empty cell for a given column ('width' or 'height') and sets focus.
+     * @param {string} column - 'width' or 'height'.
      */
-    focusFirstEmptyCell(uiState, quoteData, column) {
-        const updatedUiState = { ...uiState };
-        const items = quoteData.rollerBlindItems;
+    focusFirstEmptyCell(column) {
+        const items = this.quoteService.getItems();
         const firstEmptyIndex = items.findIndex(item => !item[column]);
         const targetIndex = (firstEmptyIndex !== -1) ? firstEmptyIndex : items.length - 1;
 
-        updatedUiState.activeCell = { rowIndex: targetIndex, column: column };
-        updatedUiState.inputMode = column;
-        updatedUiState.inputValue = '';
-        return updatedUiState;
+        this.uiService.setActiveCell(targetIndex, column);
+        this.uiService.setInputValue('');
     }
 
     /**
-     * Calculates the new active cell after a value is committed.
-     * Moves focus down one row in the same column.
-     * @param {object} uiState The current UI state.
-     * @param {object} quoteData The current quote data.
-     * @returns {object} The updated UI state.
+     * Moves focus to the next logical cell after a value is committed.
      */
-    focusAfterCommit(uiState, quoteData) {
-        return this.moveActiveCell(uiState, quoteData, 'down');
+    focusAfterCommit() {
+        this.moveActiveCell('down');
     }
 
     /**
-     * Calculates the new active cell after a row is deleted.
-     * Moves focus to the width cell of the new last row.
-     * @param {object} uiState The current UI state.
-     * @param {object} quoteData The current quote data.
-     * @returns {object} The updated UI state.
+     * Moves focus to the width cell of the new last row after a deletion.
      */
-    focusAfterDelete(uiState, quoteData) {
-        const updatedUiState = { ...uiState };
-        updatedUiState.activeCell = { rowIndex: quoteData.rollerBlindItems.length - 1, column: 'width' };
-        return updatedUiState;
+    focusAfterDelete() {
+        const lastIndex = this.quoteService.getItems().length - 1;
+        this.uiService.setActiveCell(lastIndex, 'width');
     }
 
     /**
-     * Calculates the new active cell after a row is cleared.
      * Moves focus to the width cell of the cleared row.
-     * @param {object} uiState The current UI state.
-     * @returns {object} The updated UI state.
      */
-    focusAfterClear(uiState) {
-        const updatedUiState = { ...uiState };
-        updatedUiState.activeCell = { rowIndex: uiState.selectedRowIndex, column: 'width' };
-        return updatedUiState;
+    focusAfterClear() {
+        const { selectedRowIndex } = this.uiService.getState();
+        if (selectedRowIndex !== null) {
+            this.uiService.setActiveCell(selectedRowIndex, 'width');
+        }
     }
 
     /**
-     * Calculates the new active cell when an arrow key is pressed.
-     * @param {object} uiState The current UI state.
-     * @param {object} quoteData The current quote data.
-     * @param {string} direction 'up', 'down', 'left', or 'right'.
-     * @returns {object} The updated UI state.
+     * Moves the active cell when an arrow key is pressed.
+     * @param {string} direction - 'up', 'down', 'left', or 'right'.
      */
-    moveActiveCell(uiState, quoteData, direction) {
-        const updatedUiState = { ...uiState };
-        let { rowIndex, column } = updatedUiState.activeCell;
-        const items = quoteData.rollerBlindItems;
+    moveActiveCell(direction) {
+        const { activeCell } = this.uiService.getState();
+        const items = this.quoteService.getItems();
+        let { rowIndex } = activeCell;
+        let { column } = activeCell;
+        
         const navigableColumns = ['width', 'height', 'TYPE'];
         let columnIndex = navigableColumns.indexOf(column);
 
@@ -86,17 +74,14 @@ export class FocusService {
         }
         
         column = navigableColumns[columnIndex];
-        updatedUiState.activeCell = { rowIndex, column };
-        updatedUiState.inputMode = (column === 'width' || column === 'height') ? column : updatedUiState.inputMode;
-        updatedUiState.selectedRowIndex = null;
+        this.uiService.setActiveCell(rowIndex, column);
+        this.uiService.clearRowSelection();
         
         const currentItem = items[rowIndex];
         if (currentItem && (column === 'width' || column === 'height')) {
-            updatedUiState.inputValue = String(currentItem[column] || '');
+            this.uiService.setInputValue(currentItem[column]);
         } else {
-            updatedUiState.inputValue = '';
+            this.uiService.setInputValue('');
         }
-        
-        return updatedUiState;
     }
 }
