@@ -1,0 +1,56 @@
+列出資料夾 PATH
+磁碟區序號為 98CE-93D0
+D:.
+│  filelist.txt
+│  index.html
+│  style.css
+│  
+├─01-project-docs
+│      project-plan-v2.3.docx
+│      ui-design-rationale-zh-tw.txt
+│      workflow-and-business-logic-zh-tw.txt
+│      
+├─02-ui
+│      detailed-item-list-final.html
+│      quote-template-final.html
+│      
+├─03-data-models
+│      price-matrix-v1.0.json
+│      quote-data-structure-final.js
+│      
+└─04-core-code
+    │  app-controller.js
+    │  config-manager.js
+    │  event-aggregator.js
+    │  input-handler.js
+    │  main.js
+    │  
+    ├─config
+    │      initial-state.js
+    │      
+    ├─models
+    │      quote-model.js
+    │      
+    ├─services
+    │      calculation-service.js
+    │      file-service.js
+    │      focus-service.js
+    │      persistence-service.js
+    │      quote-service.js
+    │      
+    ├─strategies
+    │      product-factory.js
+    │      roller-blind-strategy.js
+    │      
+    ├─ui
+    │      dialog-component.js
+    │      header-component.js
+    │      notification-component.js
+    │      panel-component.js
+    │      summary-component.js
+    │      table-component.js
+    │      ui-manager.js
+    │      
+    └─utils
+            csv-parser.js
+            

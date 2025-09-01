@@ -16,7 +16,7 @@ export class UIManager {
         this.numericKeyboardPanel = document.getElementById('numeric-keyboard-panel');
         this.insertButton = document.getElementById('key-insert');
         this.deleteButton = document.getElementById('key-delete');
-        this.mDelButton = document.getElementById('key-f5'); // [新增] M-Del 按鈕的引用
+        this.mDelButton = document.getElementById('key-f5');
         const clearButtonOnKeyboard = document.getElementById('key-clear');
         this.clearButton = clearButtonOnKeyboard;
         
@@ -34,6 +34,7 @@ export class UIManager {
             panelElement: document.getElementById('function-panel'),
             toggleElement: document.getElementById('function-panel-toggle'),
             eventAggregator: this.eventAggregator,
+            expandedClass: 'is-expanded',
             retractEventName: 'operationSuccessfulAutoHidePanel'
         });
 
@@ -56,22 +57,16 @@ export class UIManager {
 
     render(state) {
         this.headerComponent.render(state.ui.inputValue);
-        // [修改] 將多選狀態傳遞給 TableComponent
-        this.tableComponent.render(
-            state.quoteData.rollerBlindItems, 
-            state.ui.activeCell, 
-            state.ui.selectedRowIndex,
-            state.ui.isMultiDeleteMode,
-            state.ui.multiDeleteSelectedIndexes
-        );
+
+        // --- [重構] 直接將整個 state 物件傳遞給 TableComponent ---
+        this.tableComponent.render(state);
+        
         this.summaryComponent.render(state.quoteData.summary, state.ui.isSumOutdated);
         
-        // [修改] 將渲染按鈕狀態所需的所有 state 傳遞下去
         this._updateButtonStates(state);
         this._scrollToActiveCell(state);
     }
 
-    // [重構] 擴展此方法以處理所有複雜的按鈕禁用/啟用邏輯
     _updateButtonStates(state) {
         const { selectedRowIndex, isMultiDeleteMode, multiDeleteSelectedIndexes } = state.ui;
         const items = state.quoteData.rollerBlindItems;
@@ -102,23 +97,20 @@ export class UIManager {
             const item = items[selectedRowIndex];
             const isLastRow = selectedRowIndex === items.length - 1;
             const isRowEmpty = !item.width && !item.height && !item.fabricType;
-            if (!(isLastRow && isRowEmpty)) { // 如果不是「最後的空行」，則可刪除
+            if (!(isLastRow && isRowEmpty)) {
                 deleteDisabled = false;
             }
         }
         if (this.deleteButton) this.deleteButton.disabled = deleteDisabled;
         
         // --- M-Del Button Logic ---
-        // 只有在單選模式下選中一個項目時才能啟用
         let mDelDisabled = !isSingleRowSelected;
         if (this.mDelButton) {
             this.mDelButton.disabled = mDelDisabled;
-            // 進入多選模式後，按鈕變色以提示當前模式
-            this.mDelButton.style.backgroundColor = isMultiDeleteMode ? '#f5c6cb' : ''; // 淡紅色
+            this.mDelButton.style.backgroundColor = isMultiDeleteMode ? '#f5c6cb' : '';
         }
 
         // --- Clear Button Logic ---
-        // 只有在單選模式下選中一個項目時才能啟用
         if (this.clearButton) this.clearButton.disabled = !isSingleRowSelected;
     }
     

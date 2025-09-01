@@ -13,38 +13,34 @@ export class TableComponent {
     }
 
     /**
-     * Renders the table body based on the provided items and UI state.
-     * @param {Array} items - The array of rollerBlindItems.
-     * @param {object} activeCell - The currently active cell { rowIndex, column }.
-     * @param {number|null} selectedRowIndex - The index of the selected row.
-     * @param {boolean} isMultiDeleteMode - Flag for multi-delete mode.
-     * @param {Set<number>} multiDeleteSelectedIndexes - A set of selected row indexes.
+     * Renders the table body based on the provided state object.
+     * @param {object} state - The full application state containing quoteData and ui state.
      */
-    render(items, activeCell, selectedRowIndex, isMultiDeleteMode, multiDeleteSelectedIndexes) {
-        if (items.length === 0 || (items.length === 1 && !items[0].width && !items[0].height)) {
+    render(state) {
+        const { rollerBlindItems } = state.quoteData;
+        const { activeCell, selectedRowIndex, isMultiDeleteMode, multiDeleteSelectedIndexes } = state.ui;
+
+        if (rollerBlindItems.length === 0 || (rollerBlindItems.length === 1 && !rollerBlindItems[0].width && !rollerBlindItems[0].height)) {
             this.tbody.innerHTML = `<tr><td colspan="5" style="text-align: left; color: #888;">Enter dimensions to begin...</td></tr>`;
             return;
         }
 
-        const rowsHtml = items.map((item, index) => {
+        const rowsHtml = rollerBlindItems.map((item, index) => {
             const isRowActive = index === activeCell.rowIndex;
             
-            // --- [重構] 項次欄的 class 邏輯 ---
             let sequenceCellClass = '';
-            const isLastRow = index === items.length - 1;
+            const isLastRow = index === rollerBlindItems.length - 1;
             const isRowEmpty = !item.width && !item.height && !item.fabricType;
 
             if (isMultiDeleteMode) {
-                // 在多選模式下
                 if (isLastRow && isRowEmpty) {
-                    sequenceCellClass = 'selection-disabled'; // 最後的空行不可選
+                    sequenceCellClass = 'selection-disabled';
                 } else if (multiDeleteSelectedIndexes.has(index)) {
-                    sequenceCellClass = 'multi-selected-row'; // 已被多選的行
+                    sequenceCellClass = 'multi-selected-row';
                 }
             } else {
-                // 在單選模式下
                 if (index === selectedRowIndex) {
-                    sequenceCellClass = 'selected-row-highlight'; // 單選高亮
+                    sequenceCellClass = 'selected-row-highlight';
                 }
             }
 
