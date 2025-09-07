@@ -59,6 +59,29 @@
             </div>
         </div>
     </div>
+
+    <div id="left-panel">
+        <div id="left-panel-toggle" title="Toggle Left Panel">
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+        </div>
+        <div class="tab-container">
+            <button id="k1-tab" class="tab-button active" data-tab-target="#k1-content">K1</button>
+            <button id="k2-tab" class="tab-button" data-tab-target="#k2-content">K2</button>
+            <button id="k3-tab" class="tab-button" data-tab-target="#k3-content">K3</button>
+            <button id="k4-tab" class="tab-button" data-tab-target="#k4-content">K4</button>
+            <button id="k5-tab" class="tab-button" data-tab-target="#k5-content">K5</button>
+        </div>
+        <div class="tab-content-container">
+            <div id="k1-content" class="tab-content active">(K1) 功能留空</div>
+            <div id="k2-content" class="tab-content">(K2) 功能留空</div>
+            <div id="k3-content" class="tab-content">(K3) 功能留空</div>
+            <div id="k4-content" class="tab-content">(K4) 功能留空</div>
+            <div id="k5-content" class="tab-content">(K5) 功能留空</div>
+        </div>
+    </div>
+
     <div id="function-panel">
         <div id="function-panel-toggle" title="Toggle Function Panel">
             <svg class="toggle-arrow arrow-left" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
@@ -79,6 +102,7 @@
             <button id="key-reset">RESET</button>
         </div>
     </div>
+
     <input type="file" id="file-loader" style="display: none;" accept=".json,.csv">
     <div id="toast-container"></div>
 
