@@ -1,0 +1,54 @@
+列出資料夾 PATH
+磁碟區序號為 98CE-93D0
+D:.
+│  filelist.txt
+│  index.html
+│  jest.config.js
+│  package.json
+│  style.css
+│  tree.txt
+│  
+├─01-project-docs
+│      Development Methodology and Best Practices.txt
+│      The Principle of a Visual Focus Frame.txt
+│      ui-design-rationale-zh-tw.txt
+│      workflow-and-business-logic-zh-tw.txt
+│      
+├─03-data-models
+│      price-matrix-v1.0.json
+│      
+└─04-core-code
+    │  app-controller.js
+    │  config-manager.js
+    │  event-aggregator.js
+    │  input-handler.js
+    │  main.js
+    │  
+    ├─config
+    │      initial-state.js
+    │      
+    ├─services
+    │      calculation-service.js
+    │      calculation-service.spec.js
+    │      file-service.js
+    │      focus-service.js
+    │      quote-service.js
+    │      quote-service.spec.js
+    │      ui-service.js
+    │      
+    ├─strategies
+    │      product-factory.js
+    │      roller-blind-strategy.js
+    │      
+    ├─ui
+    │      dialog-component.js
+    │      header-component.js
+    │      notification-component.js
+    │      panel-component.js
+    │      summary-component.js
+    │      table-component.js
+    │      ui-manager.js
+    │      
+    └─utils
+            csv-parser.js
+            
